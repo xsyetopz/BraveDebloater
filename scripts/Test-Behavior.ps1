@@ -1,0 +1,97 @@
+#requires -Version 5.1
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$root = Split-Path -Parent $PSScriptRoot
+$scriptPath = Join-Path $root 'Invoke-BraveDebloat.ps1'
+$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('BraveDebloaterBehavior-{0}' -f [guid]::NewGuid().ToString('N'))
+
+function Assert-TextContains {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Expected,
+        [Parameter(Mandatory = $true)][string]$Context
+    )
+
+    if (-not $Text.Contains($Expected)) {
+        throw "$Context did not contain expected text: $Expected"
+    }
+}
+
+function Assert-TextDoesNotContain {
+    param(
+        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Unexpected,
+        [Parameter(Mandatory = $true)][string]$Context
+    )
+
+    if ($Text.Contains($Unexpected)) {
+        throw "$Context contained unexpected text: $Unexpected"
+    }
+}
+
+try {
+    New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+
+    $missingProfileRoot = Join-Path $tempRoot 'MissingProfileRoot'
+    $listOutput = (& $scriptPath -Preset Core -List -IncludeProfilePreferences -ProfileRoot $missingProfileRoot *>&1 | Out-String)
+    Assert-TextContains -Text $listOutput -Expected 'Profile preference patches' -Context '-List output'
+    Assert-TextContains -Text $listOutput -Expected 'brave.new_tab_page.show_branded_background_image' -Context '-List output'
+    Assert-TextDoesNotContain -Text $listOutput -Unexpected '[dry-run]' -Context '-List output'
+
+    $whatIfBackupDirectory = Join-Path $tempRoot 'WhatIfBackups'
+    $whatIfOutput = (& $scriptPath -Preset Core -Apply -WhatIf -BackupDirectory $whatIfBackupDirectory *>&1 | Out-String)
+    Assert-TextContains -Text $whatIfOutput -Expected 'WhatIf mode. No registry, backup, or profile files will be changed.' -Context '-WhatIf output'
+    Assert-TextDoesNotContain -Text $whatIfOutput -Unexpected 'Backup written' -Context '-WhatIf output'
+    Assert-TextDoesNotContain -Text $whatIfOutput -Unexpected 'Done. Restart Brave' -Context '-WhatIf output'
+    if (Test-Path -LiteralPath $whatIfBackupDirectory) {
+        throw '-WhatIf created a backup directory.'
+    }
+
+    $tamperedBackup = Join-Path $tempRoot 'tampered-backup.json'
+    [ordered]@{
+        schemaVersion = 1
+        registryPath = 'Registry::HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows'
+        policies = @()
+        profileFiles = @()
+    } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $tamperedBackup -Encoding UTF8
+
+    $failedAsExpected = $false
+    try {
+        & $scriptPath -UndoFromBackup $tamperedBackup | Out-Null
+    }
+    catch {
+        $failedAsExpected = $_.Exception.Message -match 'untrusted registry path'
+    }
+    if (-not $failedAsExpected) {
+        throw 'Tampered backup did not fail with the expected restore validation error.'
+    }
+
+    $validBackup = Join-Path $tempRoot 'valid-backup.json'
+    [ordered]@{
+        schemaVersion = 1
+        registryPath = 'Registry::HKEY_CURRENT_USER\Software\Policies\BraveSoftware\Brave'
+        policies = @(
+            [ordered]@{
+                name = 'BraveRewardsDisabled'
+                existed = $false
+                value = $null
+                kind = $null
+            }
+        )
+        profileFiles = @()
+    } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $validBackup -Encoding UTF8
+
+    $restoreOutput = (& $scriptPath -UndoFromBackup $validBackup *>&1 | Out-String)
+    Assert-TextContains -Text $restoreOutput -Expected 'Would remove BraveRewardsDisabled' -Context 'restore dry-run output'
+
+    Write-Host 'Behavior checks passed.'
+}
+finally {
+    if (Test-Path -LiteralPath $tempRoot) {
+        Remove-Item -LiteralPath $tempRoot -Recurse -Force
+    }
+}

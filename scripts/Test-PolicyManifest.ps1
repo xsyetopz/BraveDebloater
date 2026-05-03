@@ -60,6 +60,13 @@ if (-not (Test-Path -LiteralPath $manifestPath)) {
 }
 
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ([int]$manifest.schemaVersion -ne 1) {
+    throw "Unsupported manifest schema version '$($manifest.schemaVersion)'."
+}
+if ([string]::IsNullOrWhiteSpace([string]$manifest.policyTemplateVersion)) {
+    throw 'Manifest is missing policyTemplateVersion.'
+}
+
 $policies = Get-ObjectMap -Object $manifest.policies
 $presets = Get-ObjectMap -Object $manifest.presets
 $blockedNames = @($manifest.safety.blockedPolicyNames)
@@ -95,11 +102,23 @@ foreach ($policyName in $policies.Keys) {
     if ($policy.type -eq 'DWord' -and $policy.value -isnot [int] -and $policy.value -isnot [long]) {
         throw "Policy '$policyName' is DWord but has non-integer value '$($policy.value)'."
     }
+    if ($policy.type -eq 'DWord' -and ([long]$policy.value -lt 0 -or [long]$policy.value -gt [uint32]::MaxValue)) {
+        throw "Policy '$policyName' has DWord value outside the registry range: $($policy.value)."
+    }
 }
 
 foreach ($patch in @($manifest.profilePreferencePatches)) {
+    if ([string]::IsNullOrWhiteSpace([string]$patch.path)) {
+        throw 'Profile patch is missing a path.'
+    }
     if ([string]$patch.path -match '(?i)shield') {
         throw "Profile patch '$($patch.path)' mentions Shields."
+    }
+    if ($patch.createMissing -isnot [bool]) {
+        throw "Profile patch '$($patch.path)' has non-boolean createMissing value."
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$patch.reason)) {
+        throw "Profile patch '$($patch.path)' is missing a reason."
     }
 }
 

@@ -11,6 +11,7 @@ Thanks for helping make BraveDebloater safer and cleaner.
 - Add every policy to `config/policies.json` with a clear category and reason.
 - Keep dry-run output understandable for non-experts.
 - Keep restore behavior working whenever a new write path is added.
+- Treat `-List` and `-WhatIf` as read-only paths.
 
 ## Checks
 
@@ -18,6 +19,7 @@ Before opening a pull request, run:
 
 ```powershell
 .\scripts\Test-PolicyManifest.ps1
+.\scripts\Test-Behavior.ps1
 .\Invoke-BraveDebloat.ps1 -Preset Aggressive -LockShields
 ```
 
