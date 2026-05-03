@@ -1,4 +1,6 @@
-# 🔒 Security Policy
+# Security Policy
+
+[![Security policy](https://img.shields.io/badge/security-policy-0969da?style=flat-square&logo=github&logoColor=white)](https://github.com/osfv/BraveDebloater/security/policy)
 
 Please report security-sensitive issues privately instead of opening a public issue.
 

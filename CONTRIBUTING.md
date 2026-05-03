@@ -1,4 +1,6 @@
-# 🤝 Contributing
+# Contributing
+
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-2ea44f?style=flat-square&logo=github&logoColor=white)](https://github.com/osfv/BraveDebloater/issues)
 
 Thanks for helping make BraveDebloater safer and cleaner.
 
@@ -10,7 +12,7 @@ Thanks for helping make BraveDebloater safer and cleaner.
 - Keep dry-run output understandable for non-experts.
 - Keep restore behavior working whenever a new write path is added.
 
-## ✅ Checks
+## Checks
 
 Before opening a pull request, run:
 
