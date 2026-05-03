@@ -6,6 +6,10 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/osfv/BraveDebloater/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/osfv/BraveDebloater/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/osfv/BraveDebloater?style=flat-square&label=license)](LICENSE)
 
+<p align="center">
+  <img src="assets/screenshots/brave-new-tab.jpg" alt="Brave Browser new tab page with Shields stats visible" width="100%" />
+</p>
+
 <p>
   <img src="assets/icons/brave.svg" width="18" alt="Brave logo" />
   <strong>BraveDebloater</strong> is a safety-first Windows PowerShell tool for trimming Brave Browser extras while keeping Brave Shields intact.
