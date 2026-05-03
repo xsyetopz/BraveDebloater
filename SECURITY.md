@@ -1,4 +1,4 @@
-# Security Policy
+# 🔒 Security Policy
 
 Please report security-sensitive issues privately instead of opening a public issue.
 

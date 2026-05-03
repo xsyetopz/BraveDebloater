@@ -1,4 +1,4 @@
-# Contributing
+# 🤝 Contributing
 
 Thanks for helping make BraveDebloater safer and cleaner.
 
@@ -10,7 +10,7 @@ Thanks for helping make BraveDebloater safer and cleaner.
 - Keep dry-run output understandable for non-experts.
 - Keep restore behavior working whenever a new write path is added.
 
-## Checks
+## ✅ Checks
 
 Before opening a pull request, run:
 

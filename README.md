@@ -1,10 +1,10 @@
-# BraveDebloater
+# 🛡️ BraveDebloater
 
 BraveDebloater is a safety-first Windows PowerShell tool for trimming Brave Browser extras while keeping Brave Shields intact.
 
 It uses official Brave/Chromium enterprise policies where possible, starts in dry-run mode, writes backups before applying changes, and includes an undo path. No updater disabling, no host-file edits, no extension removal, and no Shield allowlisting.
 
-## What It Debloats
+## ✨ What It Debloats
 
 - Brave Rewards, Wallet, VPN, Leo AI Chat, News, Talk, Playlist, Speedreader, and Wayback prompts
 - Brave telemetry surfaces such as P3A, stats ping, and Web Discovery
@@ -13,7 +13,7 @@ It uses official Brave/Chromium enterprise policies where possible, starts in dr
 
 Optional profile preference cleanup can also hide some new tab sponsored/background and toolbar surfaces when Brave stores those preferences in per-profile `Preferences` JSON.
 
-## Quick Start
+## 🚀 Quick Start
 
 Preview the aggressive preset:
 
@@ -54,7 +54,7 @@ Registry policies are the main path because they are supported and visible in `b
 
 If Brave is running, profile preference cleanup is skipped to avoid writing files that Brave may overwrite.
 
-## Restore
+## ↩️ Restore
 
 Every applied run creates a JSON backup in `backups/` unless `-NoBackup` is used for policy-only changes.
 
