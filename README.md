@@ -6,7 +6,18 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/osfv/BraveDebloater/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/osfv/BraveDebloater/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/osfv/BraveDebloater?style=flat-square&label=license)](LICENSE)
 
-BraveDebloater is a safety-first Windows PowerShell tool for trimming Brave Browser extras while keeping Brave Shields intact.
+<p>
+  <img src="assets/icons/brave.svg" width="18" alt="Brave logo" />
+  <strong>BraveDebloater</strong> is a safety-first Windows PowerShell tool for trimming Brave Browser extras while keeping Brave Shields intact.
+</p>
+
+<p>
+  <img src="assets/icons/windows.svg" width="16" alt="Windows logo" /> Windows-first
+  &nbsp;·&nbsp;
+  <img src="assets/icons/powershell.svg" width="16" alt="PowerShell logo" /> PowerShell-native
+  &nbsp;·&nbsp;
+  Open source
+</p>
 
 It uses official Brave/Chromium enterprise policies where possible, starts in dry-run mode, writes backups before applying changes, and includes an undo path. No updater disabling, no host-file edits, no extension removal, and no Shield allowlisting.
 
