@@ -42,6 +42,12 @@ Preview the aggressive preset:
 .\Invoke-BraveDebloat.ps1 -Preset Aggressive
 ```
 
+List the policies and optional profile preference patches without running the dry-run/apply flow:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Preset Aggressive -List -IncludeProfilePreferences
+```
+
 Apply it for the current Windows user:
 
 ```powershell
@@ -52,6 +58,12 @@ Apply it and enforce a safe Shields baseline:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Aggressive -LockShields -Apply
+```
+
+PowerShell `-WhatIf` is supported as a no-write preview even when `-Apply` is present:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Preset Aggressive -Apply -WhatIf
 ```
 
 After applying, restart Brave and open `brave://policy` to verify the policies.
@@ -82,14 +94,16 @@ Every applied run creates a JSON backup in `backups/` unless `-NoBackup` is used
 Preview a restore:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -UndoFromBackup .\backups\BraveDebloater-YYYYMMDD-HHMMSS.json
+.\Invoke-BraveDebloat.ps1 -UndoFromBackup .\backups\BraveDebloater-YYYYMMDD-HHMMSS-fff.json
 ```
 
 Apply a restore:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -UndoFromBackup .\backups\BraveDebloater-YYYYMMDD-HHMMSS.json -Apply
+.\Invoke-BraveDebloat.ps1 -UndoFromBackup .\backups\BraveDebloater-YYYYMMDD-HHMMSS-fff.json -Apply
 ```
+
+Restore validates backup metadata before writing. Registry restores are limited to Brave policy keys, and profile file restores are limited to `Preferences` files under the selected `-ProfileRoot`.
 
 ## Machine-Wide Mode
 
@@ -112,4 +126,5 @@ Run the built-in manifest and syntax checks:
 
 ```powershell
 .\scripts\Test-PolicyManifest.ps1
+.\scripts\Test-Behavior.ps1
 ```

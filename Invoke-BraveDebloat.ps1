@@ -124,6 +124,170 @@ function Get-RegistryBasePath {
     return 'Registry::HKEY_CURRENT_USER\Software\Policies\BraveSoftware\Brave'
 }
 
+function Get-FullFileSystemPath {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw 'Expected a non-empty filesystem path.'
+    }
+
+    try {
+        return [System.IO.Path]::GetFullPath($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path))
+    }
+    catch {
+        return [System.IO.Path]::GetFullPath($Path)
+    }
+}
+
+function Test-PathIsUnderDirectory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Directory
+    )
+
+    $fullPath = Get-FullFileSystemPath -Path $Path
+    $fullDirectory = Get-FullFileSystemPath -Path $Directory
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+
+    if (-not $fullDirectory.EndsWith([string]$separator, [StringComparison]::OrdinalIgnoreCase)) {
+        $fullDirectory = "$fullDirectory$separator"
+    }
+
+    return $fullPath.StartsWith($fullDirectory, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-RequiredPropertyValue {
+    param(
+        [Parameter(Mandatory = $true)]$Object,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][string]$Context
+    )
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        throw "$Context is missing required property '$Name'."
+    }
+
+    return $property.Value
+}
+
+function Assert-BackupRegistryPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$RegistryPath,
+        [switch]$DoApply
+    )
+
+    $allowedPaths = @(
+        'Registry::HKEY_CURRENT_USER\Software\Policies\BraveSoftware\Brave',
+        'Registry::HKEY_LOCAL_MACHINE\Software\Policies\BraveSoftware\Brave'
+    )
+
+    if ($allowedPaths -notcontains $RegistryPath) {
+        throw "Backup contains untrusted registry path '$RegistryPath'."
+    }
+
+    if ($DoApply -and $RegistryPath -ieq 'Registry::HKEY_LOCAL_MACHINE\Software\Policies\BraveSoftware\Brave' -and -not (Test-IsAdministrator)) {
+        throw 'Restoring a LocalMachine backup requires an elevated PowerShell session.'
+    }
+}
+
+function Assert-BackupPolicyList {
+    param(
+        [Parameter(Mandatory = $true)]$Backup,
+        [Parameter(Mandatory = $true)][hashtable]$PolicyDefinitions
+    )
+
+    if ($null -eq $Backup.PSObject.Properties['policies']) {
+        throw "Backup is missing required property 'policies'."
+    }
+
+    foreach ($policy in @($Backup.policies)) {
+        $name = [string](Get-RequiredPropertyValue -Object $policy -Name 'name' -Context 'Backup policy')
+        $existed = Get-RequiredPropertyValue -Object $policy -Name 'existed' -Context "Backup policy '$name'"
+
+        if (-not ($existed -is [bool])) {
+            throw "Backup policy '$name' has a non-boolean 'existed' value."
+        }
+        if (-not $PolicyDefinitions.ContainsKey($name)) {
+            throw "Backup policy '$name' is not managed by this manifest."
+        }
+
+        if ($existed) {
+            $kind = [string](Get-RequiredPropertyValue -Object $policy -Name 'kind' -Context "Backup policy '$name'")
+            if (@('DWord', 'String') -notcontains $kind) {
+                throw "Backup policy '$name' has unsupported registry kind '$kind'."
+            }
+            if ($kind -ne [string]$PolicyDefinitions[$name].type) {
+                throw "Backup policy '$name' registry kind '$kind' does not match the manifest type '$($PolicyDefinitions[$name].type)'."
+            }
+
+            $value = Get-RequiredPropertyValue -Object $policy -Name 'value' -Context "Backup policy '$name'"
+            if ($kind -eq 'DWord' -and $value -isnot [int] -and $value -isnot [long]) {
+                throw "Backup policy '$name' is DWord but has non-integer value '$value'."
+            }
+            if ($kind -eq 'String' -and $value -isnot [string]) {
+                throw "Backup policy '$name' is String but has non-string value '$value'."
+            }
+        }
+    }
+}
+
+function Assert-BackupProfileFile {
+    param(
+        [Parameter(Mandatory = $true)]$ProfileFile,
+        [Parameter(Mandatory = $true)][string]$BackupPath,
+        [Parameter(Mandatory = $true)][string]$ProfileRoot
+    )
+
+    $source = [string](Get-RequiredPropertyValue -Object $ProfileFile -Name 'backupPath' -Context 'Backup profile file')
+    $target = [string](Get-RequiredPropertyValue -Object $ProfileFile -Name 'originalPath' -Context 'Backup profile file')
+    $backupDirectory = Split-Path -Parent (Get-FullFileSystemPath -Path $BackupPath)
+    $profileBackupDirectory = Join-Path $backupDirectory 'profile-files'
+
+    # Profile restores should only read files created beside the selected backup.
+    if (-not (Test-PathIsUnderDirectory -Path $source -Directory $profileBackupDirectory)) {
+        throw "Backup profile source is outside the expected backup folder: $source"
+    }
+
+    # Profile restores should only write Brave Preferences files under the selected profile root.
+    if (-not (Test-PathIsUnderDirectory -Path $target -Directory $ProfileRoot)) {
+        throw "Backup profile target is outside the selected profile root: $target"
+    }
+    if ((Split-Path -Leaf $target) -ne 'Preferences') {
+        throw "Backup profile target is not a Brave Preferences file: $target"
+    }
+}
+
+function Assert-BackupObject {
+    param(
+        [Parameter(Mandatory = $true)]$Backup,
+        [Parameter(Mandatory = $true)]$Manifest,
+        [Parameter(Mandatory = $true)][string]$BackupPath,
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [switch]$DoApply
+    )
+
+    $schemaVersion = Get-RequiredPropertyValue -Object $Backup -Name 'schemaVersion' -Context 'Backup'
+    if ($schemaVersion -ne 1) {
+        throw "Unsupported backup schema version '$schemaVersion'."
+    }
+
+    $registryPath = [string](Get-RequiredPropertyValue -Object $Backup -Name 'registryPath' -Context 'Backup')
+    Assert-BackupRegistryPath -RegistryPath $registryPath -DoApply:$DoApply
+
+    $policyDefinitions = Get-ManifestMap -Object $Manifest.policies
+    Assert-BackupPolicyList -Backup $Backup -PolicyDefinitions $policyDefinitions
+
+    $profileFiles = @()
+    if ($null -ne $Backup.PSObject.Properties['profileFiles']) {
+        $profileFiles = @($Backup.profileFiles)
+    }
+
+    foreach ($profileFile in $profileFiles) {
+        Assert-BackupProfileFile -ProfileFile $profileFile -BackupPath $BackupPath -ProfileRoot $ProfileRoot
+    }
+}
+
 function Assert-PolicySafety {
     param(
         [string[]]$PolicyNames,
@@ -187,21 +351,59 @@ function Get-RegistrySnapshot {
     return $snapshot.ToArray()
 }
 
+function New-BackupPath {
+    param([string]$Directory)
+
+    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+    $path = Join-Path $Directory "BraveDebloater-$timestamp.json"
+    if (-not (Test-Path -LiteralPath $path)) {
+        return $path
+    }
+
+    $suffix = [guid]::NewGuid().ToString('N').Substring(0, 8)
+    return (Join-Path $Directory "BraveDebloater-$timestamp-$suffix.json")
+}
+
+function Set-JsonFileContent {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)]$Object,
+        [int]$Depth = 20
+    )
+
+    $directory = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $tempPath = Join-Path $directory ('.{0}.tmp' -f [guid]::NewGuid().ToString('N'))
+    try {
+        $Object | ConvertTo-Json -Depth $Depth | Set-Content -LiteralPath $tempPath -Encoding UTF8
+        Move-Item -LiteralPath $tempPath -Destination $Path -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force
+        }
+    }
+}
+
 function New-Backup {
     param(
         [string]$Directory,
         [string]$ScopeName,
         [string]$RegistryPath,
         [string[]]$PolicyNames,
+        [string]$ProfileRoot,
         [Parameter(Mandatory = $true)]$Manifest
     )
 
+    $Directory = Get-FullFileSystemPath -Path $Directory
     if (-not (Test-Path -LiteralPath $Directory)) {
         New-Item -ItemType Directory -Path $Directory -Force | Out-Null
     }
 
-    $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $path = Join-Path $Directory "BraveDebloater-$timestamp.json"
+    $path = New-BackupPath -Directory $Directory
     $backup = [ordered]@{
         schemaVersion = 1
         createdAt = (Get-Date).ToString('o')
@@ -209,11 +411,12 @@ function New-Backup {
         policyTemplateVersion = $Manifest.policyTemplateVersion
         scope = $ScopeName
         registryPath = $RegistryPath
+        profileRoot = $ProfileRoot
         policies = @(Get-RegistrySnapshot -BasePath $RegistryPath -PolicyNames $PolicyNames)
         profileFiles = @()
     }
 
-    $backup | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding UTF8
+    Set-JsonFileContent -Path $path -Object $backup -Depth 20
     return $path
 }
 
@@ -229,7 +432,7 @@ function Update-BackupProfileFiles {
 
     $backup = Get-Content -LiteralPath $BackupPath -Raw | ConvertFrom-Json
     $backup.profileFiles = @($ProfileFiles)
-    $backup | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $BackupPath -Encoding UTF8
+    Set-JsonFileContent -Path $BackupPath -Object $backup -Depth 20
 }
 
 function Set-BravePolicy {
@@ -260,6 +463,8 @@ function Set-BravePolicy {
 function Restore-RegistryBackup {
     param(
         [string]$BackupPath,
+        [Parameter(Mandatory = $true)]$Manifest,
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
         [switch]$DoApply
     )
 
@@ -268,12 +473,14 @@ function Restore-RegistryBackup {
     }
 
     $backup = Get-Content -LiteralPath $BackupPath -Raw | ConvertFrom-Json
+    Assert-BackupObject -Backup $backup -Manifest $Manifest -BackupPath $BackupPath -ProfileRoot $ProfileRoot -DoApply:$DoApply
     $registryPath = [string]$backup.registryPath
 
     foreach ($policy in @($backup.policies)) {
         $name = [string]$policy.name
+        $existed = [bool]$policy.existed
         if (-not $DoApply) {
-            if ($policy.existed) {
+            if ($existed) {
                 Write-DryRun "Would restore $name to '$($policy.value)' ($($policy.kind))."
             }
             else {
@@ -282,7 +489,7 @@ function Restore-RegistryBackup {
             continue
         }
 
-        if ($policy.existed) {
+        if ($existed) {
             if (-not (Test-Path -LiteralPath $registryPath)) {
                 New-Item -Path $registryPath -Force | Out-Null
             }
@@ -312,6 +519,10 @@ function Restore-RegistryBackup {
         }
 
         if (Test-Path -LiteralPath $source) {
+            $targetDirectory = Split-Path -Parent $target
+            if (-not (Test-Path -LiteralPath $targetDirectory)) {
+                New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+            }
             Copy-Item -LiteralPath $source -Destination $target -Force
             Write-Step "Restored profile file $target."
         }
@@ -466,7 +677,7 @@ function Invoke-ProfilePreferenceCleanup {
                 backupPath = $profileBackupPath
             })
 
-            $json | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $file -Encoding UTF8
+            Set-JsonFileContent -Path $file -Object $json -Depth 100
             Write-Step "Updated profile preferences in $file."
         }
     }
@@ -492,15 +703,37 @@ function Show-PolicyList {
         }
     }
 
-    $rows | Format-Table -AutoSize
+    $rows | Format-Table -AutoSize -Wrap
+}
+
+function Show-ProfilePreferencePatchList {
+    param([object[]]$Patches)
+
+    $rows = foreach ($patch in @($Patches)) {
+        [pscustomobject]@{
+            PreferencePath = [string]$patch.path
+            Value = $patch.value
+            CreateMissing = [bool]$patch.createMissing
+            Reason = [string]$patch.reason
+        }
+    }
+
+    $rows | Format-Table -AutoSize -Wrap
 }
 
 $manifest = Get-Manifest
+$applyChanges = $Apply -and -not $WhatIfPreference
+$isWhatIf = $Apply -and $WhatIfPreference
 
 if ($UndoFromBackup) {
-    Restore-RegistryBackup -BackupPath $UndoFromBackup -DoApply:$Apply
-    if (-not $Apply) {
-        Write-Step 'Undo dry-run complete. Rerun with -Apply to restore the backup.'
+    Restore-RegistryBackup -BackupPath $UndoFromBackup -Manifest $manifest -ProfileRoot $ProfileRoot -DoApply:$applyChanges
+    if (-not $applyChanges) {
+        if ($isWhatIf) {
+            Write-Step 'Undo WhatIf complete. Rerun with -Apply without -WhatIf to restore the backup.'
+        }
+        else {
+            Write-Step 'Undo dry-run complete. Rerun with -Apply to restore the backup.'
+        }
     }
     else {
         Write-Step 'Undo complete. Restart Brave, then open brave://policy to verify.'
@@ -534,9 +767,11 @@ Assert-PolicySafety -PolicyNames $policyNames.ToArray() -Manifest $manifest
 
 if ($List) {
     Show-PolicyList -PolicyNames $policyNames.ToArray() -PolicyDefinitions $policyDefinitions
-    if (-not $IncludeProfilePreferences) {
-        return
+    if ($IncludeProfilePreferences) {
+        Write-Step 'Profile preference patches:'
+        Show-ProfilePreferencePatchList -Patches @($manifest.profilePreferencePatches)
     }
+    return
 }
 
 $registryPath = Get-RegistryBasePath -ScopeName $Scope
@@ -550,23 +785,28 @@ else {
     Write-Step 'Shield baseline: not locked. This tool will not disable or whitelist Brave Shields.'
 }
 
-if (-not $Apply) {
-    Write-Step 'Dry-run mode. No registry or profile files will be changed.'
+if (-not $applyChanges) {
+    if ($isWhatIf) {
+        Write-Step 'WhatIf mode. No registry, backup, or profile files will be changed.'
+    }
+    else {
+        Write-Step 'Dry-run mode. No registry, backup, or profile files will be changed.'
+    }
 }
 
-if ($IncludeProfilePreferences -and $Apply -and $NoBackup) {
+if ($IncludeProfilePreferences -and $applyChanges -and $NoBackup) {
     throw 'Profile preference cleanup requires backups. Remove -NoBackup or omit -IncludeProfilePreferences.'
 }
 
 $backupPath = $null
-if ($Apply -and -not $NoBackup) {
-    $backupPath = New-Backup -Directory $BackupDirectory -ScopeName $Scope -RegistryPath $registryPath -PolicyNames $policyNames.ToArray() -Manifest $manifest
+if ($applyChanges -and -not $NoBackup) {
+    $backupPath = New-Backup -Directory $BackupDirectory -ScopeName $Scope -RegistryPath $registryPath -PolicyNames $policyNames.ToArray() -ProfileRoot $ProfileRoot -Manifest $manifest
     Write-Step "Backup written to $backupPath"
 }
 
 foreach ($policyName in $policyNames) {
     $definition = $policyDefinitions[$policyName]
-    if (-not $Apply) {
+    if (-not $applyChanges) {
         Write-DryRun "Would set $policyName = $($definition.value) ($($definition.reason))"
         continue
     }
@@ -578,11 +818,16 @@ foreach ($policyName in $policyNames) {
 }
 
 if ($IncludeProfilePreferences) {
-    Invoke-ProfilePreferenceCleanup -Root $ProfileRoot -Manifest $manifest -BackupPath $backupPath -DoApply:$Apply
+    Invoke-ProfilePreferenceCleanup -Root $ProfileRoot -Manifest $manifest -BackupPath $backupPath -DoApply:$applyChanges
 }
 
-if (-not $Apply) {
-    Write-Step 'Dry-run complete. Rerun with -Apply to make changes.'
+if (-not $applyChanges) {
+    if ($isWhatIf) {
+        Write-Step 'WhatIf complete. Rerun with -Apply without -WhatIf to make changes.'
+    }
+    else {
+        Write-Step 'Dry-run complete. Rerun with -Apply to make changes.'
+    }
 }
 else {
     Write-Step 'Done. Restart Brave, then open brave://policy to verify the applied policies.'
