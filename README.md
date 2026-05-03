@@ -16,7 +16,7 @@
   &nbsp;·&nbsp;
   <img src="assets/icons/powershell.svg" width="16" alt="PowerShell logo" /> PowerShell-native
   &nbsp;·&nbsp;
-  Open source
+  <img src="assets/icons/opensource.svg" width="16" alt="Open Source Initiative logo" /> Open source
 </p>
 
 It uses official Brave/Chromium enterprise policies where possible, starts in dry-run mode, writes backups before applying changes, and includes an undo path. No updater disabling, no host-file edits, no extension removal, and no Shield allowlisting.
