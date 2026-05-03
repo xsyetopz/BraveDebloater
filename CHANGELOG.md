@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1 - 2026-05-03
 
 - Made `-List` a read-only listing path, including optional profile preference patch listing.
 - Added safer `-WhatIf` handling, restore backup validation, collision-resistant backup names, and atomic JSON file writes.
