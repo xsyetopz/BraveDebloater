@@ -42,6 +42,24 @@ try {
     Assert-TextContains -Text $listOutput -Expected 'brave.new_tab_page.show_branded_background_image' -Context '-List output'
     Assert-TextDoesNotContain -Text $listOutput -Unexpected '[dry-run]' -Context '-List output'
 
+    $featureOutput = (& $scriptPath -Preset Extreme -ListFeatures *>&1 | Out-String)
+    Assert-TextContains -Text $featureOutput -Expected 'LeoAI' -Context '-ListFeatures output'
+    Assert-TextContains -Text $featureOutput -Expected 'Brave Rewards' -Context '-ListFeatures output'
+
+    $excludeOutput = (& $scriptPath -Preset Extreme -ExcludeFeature News,LeoAI -List *>&1 | Out-String)
+    Assert-TextContains -Text $excludeOutput -Expected 'BraveRewardsDisabled' -Context '-ExcludeFeature output'
+    Assert-TextDoesNotContain -Text $excludeOutput -Unexpected 'BraveNewsDisabled' -Context '-ExcludeFeature output'
+    Assert-TextDoesNotContain -Text $excludeOutput -Unexpected 'BraveAIChatEnabled' -Context '-ExcludeFeature output'
+
+    $includeOutput = (& $scriptPath -Preset Standard -IncludeFeature Translate -List *>&1 | Out-String)
+    Assert-TextContains -Text $includeOutput -Expected 'TranslateEnabled' -Context '-IncludeFeature output'
+
+    $filteredPatchOutput = (& $scriptPath -Preset Extreme -ExcludeFeature News,Rewards,Wallet -List -IncludeProfilePreferences *>&1 | Out-String)
+    Assert-TextContains -Text $filteredPatchOutput -Expected 'brave.new_tab_page.show_branded_background_image' -Context 'filtered profile patch output'
+    Assert-TextDoesNotContain -Text $filteredPatchOutput -Unexpected 'brave.today.should_show_toolbar_button' -Context 'filtered profile patch output'
+    Assert-TextDoesNotContain -Text $filteredPatchOutput -Unexpected 'brave.rewards.enabled' -Context 'filtered profile patch output'
+    Assert-TextDoesNotContain -Text $filteredPatchOutput -Unexpected 'brave.wallet.show_wallet_icon_on_toolbar' -Context 'filtered profile patch output'
+
     $whatIfBackupDirectory = Join-Path $tempRoot 'WhatIfBackups'
     $whatIfOutput = (& $scriptPath -Preset Core -Apply -WhatIf -BackupDirectory $whatIfBackupDirectory *>&1 | Out-String)
     Assert-TextContains -Text $whatIfOutput -Expected 'WhatIf mode. No registry, backup, or profile files will be changed.' -Context '-WhatIf output'

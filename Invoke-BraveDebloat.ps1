@@ -1,8 +1,8 @@
 #requires -Version 5.1
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
-    [ValidateSet('Core', 'Privacy', 'Aggressive')]
-    [string]$Preset = 'Aggressive',
+    [ValidateSet('Standard', 'High', 'Extreme', 'Core', 'Privacy', 'Aggressive')]
+    [string]$Preset = 'Extreme',
 
     [ValidateSet('CurrentUser', 'LocalMachine')]
     [string]$Scope = 'CurrentUser',
@@ -10,6 +10,12 @@ param(
     [switch]$Apply,
 
     [switch]$LockShields,
+
+    [switch]$Customize,
+
+    [string[]]$IncludeFeature = @(),
+
+    [string[]]$ExcludeFeature = @(),
 
     [switch]$IncludeProfilePreferences,
 
@@ -20,6 +26,8 @@ param(
     [string]$UndoFromBackup,
 
     [switch]$List,
+
+    [switch]$ListFeatures,
 
     [switch]$NoBackup
 )
@@ -103,6 +111,180 @@ function Resolve-PresetPolicies {
     }
 
     return $resolved.ToArray()
+}
+
+function Get-FeatureMap {
+    param([object[]]$Features)
+
+    $map = @{}
+    foreach ($feature in @($Features)) {
+        $id = [string]$feature.id
+        if ([string]::IsNullOrWhiteSpace($id)) {
+            throw 'Feature entry is missing an id.'
+        }
+        if ($map.ContainsKey($id)) {
+            throw "Duplicate feature id '$id'."
+        }
+        $map[$id] = $feature
+    }
+    return $map
+}
+
+function Get-FeaturePolicies {
+    param([Parameter(Mandatory = $true)]$Feature)
+
+    return @($Feature.policies) | ForEach-Object { [string]$_ }
+}
+
+function Add-StringIfMissing {
+    param(
+        [Parameter(Mandatory = $true)]$List,
+        [Parameter(Mandatory = $true)][string]$Value
+    )
+
+    if (-not $List.Contains($Value)) {
+        [void]$List.Add($Value)
+    }
+}
+
+function Remove-StringFromList {
+    param(
+        [Parameter(Mandatory = $true)]$List,
+        [Parameter(Mandatory = $true)][string]$Value
+    )
+
+    while ($List.Remove($Value)) {
+    }
+}
+
+function Test-FeatureSelectedByPolicy {
+    param(
+        [Parameter(Mandatory = $true)]$Feature,
+        [Parameter(Mandatory = $true)]$PolicyNames,
+        [Parameter(Mandatory = $true)][string]$PresetName
+    )
+
+    $policies = @(Get-FeaturePolicies -Feature $Feature)
+    if ($policies.Count -eq 0) {
+        return (@($Feature.defaultPresets) -contains $PresetName)
+    }
+
+    foreach ($policyName in $policies) {
+        if (-not $PolicyNames.Contains($policyName)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Assert-FeatureNames {
+    param(
+        [string[]]$Names,
+        [Parameter(Mandatory = $true)][hashtable]$FeatureMap
+    )
+
+    foreach ($name in @($Names)) {
+        if (-not $FeatureMap.ContainsKey($name)) {
+            $available = ($FeatureMap.Keys | Sort-Object) -join ', '
+            throw "Unknown feature '$name'. Available features: $available"
+        }
+    }
+}
+
+function Assert-FeatureReferences {
+    param(
+        [object[]]$Features,
+        [Parameter(Mandatory = $true)][hashtable]$PolicyDefinitions
+    )
+
+    foreach ($feature in @($Features)) {
+        foreach ($policyName in Get-FeaturePolicies -Feature $feature) {
+            if (-not $PolicyDefinitions.ContainsKey($policyName)) {
+                throw "Feature '$($feature.id)' references undefined policy '$policyName'."
+            }
+        }
+    }
+}
+
+function Set-FeatureSelection {
+    param(
+        [Parameter(Mandatory = $true)]$Feature,
+        [Parameter(Mandatory = $true)]$PolicyNames,
+        [Parameter(Mandatory = $true)]$SelectedFeatureIds,
+        [Parameter(Mandatory = $true)][bool]$Selected
+    )
+
+    $featureId = [string]$Feature.id
+    if ($Selected) {
+        Add-StringIfMissing -List $SelectedFeatureIds -Value $featureId
+        foreach ($policyName in Get-FeaturePolicies -Feature $Feature) {
+            Add-StringIfMissing -List $PolicyNames -Value $policyName
+        }
+        return
+    }
+
+    Remove-StringFromList -List $SelectedFeatureIds -Value $featureId
+    foreach ($policyName in Get-FeaturePolicies -Feature $Feature) {
+        Remove-StringFromList -List $PolicyNames -Value $policyName
+    }
+}
+
+function Read-FeatureChoice {
+    param(
+        [Parameter(Mandatory = $true)]$Feature,
+        [Parameter(Mandatory = $true)][bool]$Default
+    )
+
+    $defaultLabel = if ($Default) { 'Y/n' } else { 'y/N' }
+    $prompt = "Apply $($Feature.label) cleanup? [$defaultLabel]"
+    while ($true) {
+        $answer = (Read-Host $prompt).Trim()
+        if ([string]::IsNullOrWhiteSpace($answer)) {
+            return $Default
+        }
+        switch ($answer.ToLowerInvariant()) {
+            { $_ -in @('y', 'yes') } { return $true }
+            { $_ -in @('n', 'no') } { return $false }
+            default { Write-Host 'Please answer y or n.' }
+        }
+    }
+}
+
+function Resolve-FeatureSelection {
+    param(
+        [object[]]$Features,
+        [Parameter(Mandatory = $true)][hashtable]$FeatureMap,
+        [Parameter(Mandatory = $true)]$PolicyNames,
+        [Parameter(Mandatory = $true)][string]$PresetName,
+        [string[]]$IncludeNames,
+        [string[]]$ExcludeNames,
+        [switch]$UsePrompt
+    )
+
+    $selectedFeatureIds = New-Object System.Collections.Generic.List[string]
+    foreach ($feature in @($Features)) {
+        if (Test-FeatureSelectedByPolicy -Feature $feature -PolicyNames $PolicyNames -PresetName $PresetName) {
+            Add-StringIfMissing -List $selectedFeatureIds -Value ([string]$feature.id)
+        }
+    }
+
+    if ($UsePrompt) {
+        foreach ($feature in @($Features)) {
+            $default = $selectedFeatureIds.Contains([string]$feature.id)
+            $selected = Read-FeatureChoice -Feature $feature -Default $default
+            Set-FeatureSelection -Feature $feature -PolicyNames $PolicyNames -SelectedFeatureIds $selectedFeatureIds -Selected:$selected
+        }
+    }
+
+    foreach ($featureName in @($IncludeNames)) {
+        Set-FeatureSelection -Feature $FeatureMap[$featureName] -PolicyNames $PolicyNames -SelectedFeatureIds $selectedFeatureIds -Selected:$true
+    }
+
+    foreach ($featureName in @($ExcludeNames)) {
+        Set-FeatureSelection -Feature $FeatureMap[$featureName] -PolicyNames $PolicyNames -SelectedFeatureIds $selectedFeatureIds -Selected:$false
+    }
+
+    return $selectedFeatureIds.ToArray()
 }
 
 function Test-IsAdministrator {
@@ -610,6 +792,8 @@ function Invoke-ProfilePreferenceCleanup {
         [string]$Root,
         [Parameter(Mandatory = $true)]$Manifest,
         [string]$BackupPath,
+        [string[]]$SelectedFeatureIds = @(),
+        [switch]$UseFeatureFilter,
         [switch]$DoApply
     )
 
@@ -626,6 +810,12 @@ function Invoke-ProfilePreferenceCleanup {
 
     $profileBackups = New-Object System.Collections.Generic.List[object]
     $patches = @($Manifest.profilePreferencePatches)
+    if ($UseFeatureFilter) {
+        $patches = @($patches | Where-Object {
+                $featureId = [string]$_.feature
+                [string]::IsNullOrWhiteSpace($featureId) -or ($SelectedFeatureIds -contains $featureId)
+            })
+    }
 
     foreach ($file in $files) {
         if (-not $DoApply) {
@@ -706,11 +896,30 @@ function Show-PolicyList {
     $rows | Format-Table -AutoSize -Wrap
 }
 
+function Show-FeatureList {
+    param(
+        [object[]]$Features,
+        [string[]]$SelectedFeatureIds
+    )
+
+    $rows = foreach ($feature in @($Features)) {
+        [pscustomobject]@{
+            Feature = [string]$feature.id
+            Selected = ($SelectedFeatureIds -contains [string]$feature.id)
+            Label = [string]$feature.label
+            Reason = [string]$feature.reason
+        }
+    }
+
+    $rows | Format-Table -AutoSize -Wrap
+}
+
 function Show-ProfilePreferencePatchList {
     param([object[]]$Patches)
 
     $rows = foreach ($patch in @($Patches)) {
         [pscustomobject]@{
+            Feature = [string]$patch.feature
             PreferencePath = [string]$patch.path
             Value = $patch.value
             CreateMissing = [bool]$patch.createMissing
@@ -743,11 +952,26 @@ if ($UndoFromBackup) {
 
 $presets = Get-ManifestMap -Object $manifest.presets
 $policyDefinitions = Get-ManifestMap -Object $manifest.policies
+$features = @($manifest.features)
+$featureMap = Get-FeatureMap -Features $features
+Assert-FeatureReferences -Features $features -PolicyDefinitions $policyDefinitions
+
+Assert-FeatureNames -Names $IncludeFeature -FeatureMap $featureMap
+Assert-FeatureNames -Names $ExcludeFeature -FeatureMap $featureMap
+foreach ($featureName in @($IncludeFeature)) {
+    if (@($ExcludeFeature) -contains $featureName) {
+        throw "Feature '$featureName' cannot be both included and excluded."
+    }
+}
+
 $policyNames = New-Object System.Collections.Generic.List[string]
 
 foreach ($name in Resolve-PresetPolicies -Name $Preset -Presets $presets) {
     [void]$policyNames.Add($name)
 }
+
+$customFeatureRequested = $Customize -or @($IncludeFeature).Count -gt 0 -or @($ExcludeFeature).Count -gt 0
+$selectedFeatureIds = @(Resolve-FeatureSelection -Features $features -FeatureMap $featureMap -PolicyNames $policyNames -PresetName $Preset -IncludeNames $IncludeFeature -ExcludeNames $ExcludeFeature -UsePrompt:$Customize)
 
 if ($LockShields) {
     foreach ($name in Resolve-PresetPolicies -Name 'ShieldBaseline' -Presets $presets) {
@@ -765,11 +989,23 @@ foreach ($policyName in $policyNames) {
 
 Assert-PolicySafety -PolicyNames $policyNames.ToArray() -Manifest $manifest
 
+if ($ListFeatures) {
+    Show-FeatureList -Features $features -SelectedFeatureIds $selectedFeatureIds
+    return
+}
+
 if ($List) {
     Show-PolicyList -PolicyNames $policyNames.ToArray() -PolicyDefinitions $policyDefinitions
     if ($IncludeProfilePreferences) {
         Write-Step 'Profile preference patches:'
-        Show-ProfilePreferencePatchList -Patches @($manifest.profilePreferencePatches)
+        $patchesToList = @($manifest.profilePreferencePatches)
+        if ($customFeatureRequested) {
+            $patchesToList = @($patchesToList | Where-Object {
+                    $featureId = [string]$_.feature
+                    [string]::IsNullOrWhiteSpace($featureId) -or ($selectedFeatureIds -contains $featureId)
+                })
+        }
+        Show-ProfilePreferencePatchList -Patches $patchesToList
     }
     return
 }
@@ -783,6 +1019,9 @@ if ($LockShields) {
 }
 else {
     Write-Step 'Shield baseline: not locked. This tool will not disable or whitelist Brave Shields.'
+}
+if ($customFeatureRequested) {
+    Write-Step "Custom features: $($selectedFeatureIds -join ', ')"
 }
 
 if (-not $applyChanges) {
@@ -818,7 +1057,7 @@ foreach ($policyName in $policyNames) {
 }
 
 if ($IncludeProfilePreferences) {
-    Invoke-ProfilePreferenceCleanup -Root $ProfileRoot -Manifest $manifest -BackupPath $backupPath -DoApply:$applyChanges
+    Invoke-ProfilePreferenceCleanup -Root $ProfileRoot -Manifest $manifest -BackupPath $backupPath -SelectedFeatureIds $selectedFeatureIds -UseFeatureFilter:$customFeatureRequested -DoApply:$applyChanges
 }
 
 if (-not $applyChanges) {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - 2026-05-04
+
+- Added friendly `Standard`, `High`, and `Extreme` presets while keeping the original preset names as aliases.
+- Added `-Customize`, `-IncludeFeature`, `-ExcludeFeature`, and `-ListFeatures` for feature-level cleanup choices.
+- Filter profile preference cleanup by selected features when custom choices are used.
+
 ## 0.1.1 - 2026-05-03
 
 - Made `-List` a read-only listing path, including optional profile preference patch listing.

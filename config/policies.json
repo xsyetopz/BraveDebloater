@@ -23,6 +23,15 @@
     ]
   },
   "presets": {
+    "Standard": [
+      "@Core"
+    ],
+    "High": [
+      "@Privacy"
+    ],
+    "Extreme": [
+      "@Aggressive"
+    ],
     "Core": [
       "BraveRewardsDisabled",
       "BraveWalletDisabled",
@@ -74,6 +83,275 @@
       "DefaultBraveReferrersSetting"
     ]
   },
+  "features": [
+    {
+      "id": "Rewards",
+      "label": "Brave Rewards",
+      "policies": [
+        "BraveRewardsDisabled"
+      ],
+      "reason": "Remove Rewards, BAT prompts, and rewards ads."
+    },
+    {
+      "id": "Wallet",
+      "label": "Brave Wallet",
+      "policies": [
+        "BraveWalletDisabled"
+      ],
+      "reason": "Remove Brave Wallet and Web3 entry points."
+    },
+    {
+      "id": "VPN",
+      "label": "Brave VPN",
+      "policies": [
+        "BraveVPNDisabled"
+      ],
+      "reason": "Remove Brave VPN buttons and subscription prompts."
+    },
+    {
+      "id": "LeoAI",
+      "label": "Leo AI Chat",
+      "policies": [
+        "BraveAIChatEnabled"
+      ],
+      "reason": "Disable Leo AI chat integrations."
+    },
+    {
+      "id": "News",
+      "label": "Brave News",
+      "policies": [
+        "BraveNewsDisabled"
+      ],
+      "reason": "Remove Brave News surfaces."
+    },
+    {
+      "id": "Talk",
+      "label": "Brave Talk",
+      "policies": [
+        "BraveTalkDisabled"
+      ],
+      "reason": "Remove Brave Talk widgets and meeting entry points."
+    },
+    {
+      "id": "Playlist",
+      "label": "Brave Playlist",
+      "policies": [
+        "BravePlaylistEnabled"
+      ],
+      "reason": "Disable Brave Playlist."
+    },
+    {
+      "id": "Speedreader",
+      "label": "Speedreader",
+      "policies": [
+        "BraveSpeedreaderEnabled"
+      ],
+      "reason": "Disable Speedreader suggestions."
+    },
+    {
+      "id": "Wayback",
+      "label": "Wayback prompts",
+      "policies": [
+        "BraveWaybackMachineEnabled"
+      ],
+      "reason": "Disable Wayback Machine prompts on missing pages."
+    },
+    {
+      "id": "BraveTelemetry",
+      "label": "Brave telemetry",
+      "policies": [
+        "BraveP3AEnabled",
+        "BraveStatsPingEnabled",
+        "BraveWebDiscoveryEnabled"
+      ],
+      "reason": "Disable Brave analytics, stats pings, and Web Discovery contributions."
+    },
+    {
+      "id": "DeAmp",
+      "label": "De-AMP",
+      "policies": [
+        "BraveDeAmpEnabled"
+      ],
+      "reason": "Keep AMP redirects to publisher pages enabled."
+    },
+    {
+      "id": "Debouncing",
+      "label": "bounce tracking debouncing",
+      "policies": [
+        "BraveDebouncingEnabled"
+      ],
+      "reason": "Keep bounce tracking debouncing enabled."
+    },
+    {
+      "id": "GlobalPrivacyControl",
+      "label": "Global Privacy Control",
+      "policies": [
+        "BraveGlobalPrivacyControlEnabled"
+      ],
+      "reason": "Send Global Privacy Control signals."
+    },
+    {
+      "id": "TrackingQueryFiltering",
+      "label": "tracking query filtering",
+      "policies": [
+        "BraveTrackingQueryParametersFilteringEnabled"
+      ],
+      "reason": "Strip known tracking query parameters."
+    },
+    {
+      "id": "ReduceLanguage",
+      "label": "language fingerprint reduction",
+      "policies": [
+        "BraveReduceLanguageEnabled"
+      ],
+      "reason": "Reduce language fingerprinting surface."
+    },
+    {
+      "id": "ChromiumTelemetry",
+      "label": "Chromium telemetry",
+      "policies": [
+        "MetricsReportingEnabled",
+        "UrlKeyedAnonymizedDataCollectionEnabled"
+      ],
+      "reason": "Disable Chromium metrics and URL-keyed collection."
+    },
+    {
+      "id": "PrivacySandboxPrompt",
+      "label": "Privacy Sandbox prompts",
+      "policies": [
+        "PrivacySandboxPromptEnabled"
+      ],
+      "reason": "Disable Privacy Sandbox prompts."
+    },
+    {
+      "id": "SearchSuggestions",
+      "label": "remote search suggestions",
+      "policies": [
+        "SearchSuggestEnabled"
+      ],
+      "reason": "Disable remote address bar search suggestions."
+    },
+    {
+      "id": "NetworkPrediction",
+      "label": "network prediction",
+      "policies": [
+        "NetworkPredictionOptions"
+      ],
+      "reason": "Disable network prediction and preconnect."
+    },
+    {
+      "id": "RemoteSpellcheck",
+      "label": "remote spellcheck",
+      "policies": [
+        "SpellCheckServiceEnabled"
+      ],
+      "reason": "Disable remote spellcheck while keeping local spellcheck untouched."
+    },
+    {
+      "id": "BackgroundMode",
+      "label": "background mode",
+      "policies": [
+        "BackgroundModeEnabled"
+      ],
+      "reason": "Stop Brave from running background apps after the last window closes."
+    },
+    {
+      "id": "Promotions",
+      "label": "promotional surfaces",
+      "policies": [
+        "PromotionsEnabled"
+      ],
+      "reason": "Disable promotional surfaces."
+    },
+    {
+      "id": "BrowserLabs",
+      "label": "Browser Labs",
+      "policies": [
+        "BrowserLabsEnabled"
+      ],
+      "reason": "Hide experimental Browser Labs entry points."
+    },
+    {
+      "id": "MediaRecommendations",
+      "label": "media recommendations",
+      "policies": [
+        "MediaRecommendationsEnabled"
+      ],
+      "reason": "Disable media recommendation surfaces."
+    },
+    {
+      "id": "NewTabCards",
+      "label": "new tab cards",
+      "policies": [
+        "NTPCardsVisible"
+      ],
+      "reason": "Hide new tab cards."
+    },
+    {
+      "id": "ShoppingList",
+      "label": "shopping and price tracking",
+      "policies": [
+        "ShoppingListEnabled"
+      ],
+      "reason": "Disable shopping list and price tracking surfaces."
+    },
+    {
+      "id": "QRCodeGenerator",
+      "label": "QR code generator",
+      "policies": [
+        "QRCodeGeneratorEnabled"
+      ],
+      "reason": "Disable QR code generator entry points."
+    },
+    {
+      "id": "PaymentQueries",
+      "label": "payment method queries",
+      "policies": [
+        "PaymentMethodQueryEnabled"
+      ],
+      "reason": "Prevent sites from querying stored payment method availability."
+    },
+    {
+      "id": "Autofill",
+      "label": "address and card autofill",
+      "policies": [
+        "AutofillCreditCardEnabled",
+        "AutofillAddressEnabled"
+      ],
+      "reason": "Disable address and credit card autofill."
+    },
+    {
+      "id": "Translate",
+      "label": "translate prompts",
+      "policies": [
+        "TranslateEnabled",
+        "LiveTranslateEnabled"
+      ],
+      "reason": "Disable page and live translate prompts."
+    },
+    {
+      "id": "GoogleSearchSidePanel",
+      "label": "Google search side panel",
+      "policies": [
+        "GoogleSearchSidePanelEnabled"
+      ],
+      "reason": "Disable the Google search side panel."
+    },
+    {
+      "id": "NewTabBackgrounds",
+      "label": "new tab background images",
+      "policies": [],
+      "defaultPresets": [
+        "Standard",
+        "High",
+        "Extreme",
+        "Core",
+        "Privacy",
+        "Aggressive"
+      ],
+      "reason": "Hide sponsored and background images stored in profile preferences."
+    }
+  ],
   "policies": {
     "BraveRewardsDisabled": {
       "type": "DWord",
@@ -318,30 +596,35 @@
   },
   "profilePreferencePatches": [
     {
+      "feature": "NewTabBackgrounds",
       "path": "brave.new_tab_page.show_branded_background_image",
       "value": false,
       "createMissing": true,
       "reason": "Disable sponsored new tab background images where Brave stores the preference."
     },
     {
+      "feature": "NewTabBackgrounds",
       "path": "brave.new_tab_page.show_background_image",
       "value": false,
       "createMissing": false,
       "reason": "Disable new tab background images if the preference already exists."
     },
     {
+      "feature": "News",
       "path": "brave.today.should_show_toolbar_button",
       "value": false,
       "createMissing": true,
       "reason": "Hide the Brave News toolbar button where Brave stores the preference."
     },
     {
+      "feature": "Rewards",
       "path": "brave.rewards.enabled",
       "value": false,
       "createMissing": false,
       "reason": "Turn off Rewards for profiles that already have the preference."
     },
     {
+      "feature": "Wallet",
       "path": "brave.wallet.show_wallet_icon_on_toolbar",
       "value": false,
       "createMissing": false,

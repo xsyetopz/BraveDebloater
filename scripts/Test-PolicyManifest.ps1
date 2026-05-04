@@ -69,6 +69,8 @@ if ([string]::IsNullOrWhiteSpace([string]$manifest.policyTemplateVersion)) {
 
 $policies = Get-ObjectMap -Object $manifest.policies
 $presets = Get-ObjectMap -Object $manifest.presets
+$features = @($manifest.features)
+$featureIds = New-Object System.Collections.Generic.List[string]
 $blockedNames = @($manifest.safety.blockedPolicyNames)
 $blockedPatterns = @($manifest.safety.blockedNamePatterns)
 
@@ -107,9 +109,42 @@ foreach ($policyName in $policies.Keys) {
     }
 }
 
+foreach ($feature in $features) {
+    $featureId = [string]$feature.id
+    if ([string]::IsNullOrWhiteSpace($featureId)) {
+        throw 'Feature entry is missing an id.'
+    }
+    if ($featureIds.Contains($featureId)) {
+        throw "Duplicate feature id '$featureId'."
+    }
+    [void]$featureIds.Add($featureId)
+
+    if ([string]::IsNullOrWhiteSpace([string]$feature.label)) {
+        throw "Feature '$featureId' is missing a label."
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$feature.reason)) {
+        throw "Feature '$featureId' is missing a reason."
+    }
+    if ($null -eq $feature.PSObject.Properties['policies']) {
+        throw "Feature '$featureId' is missing policies."
+    }
+
+    foreach ($policyName in @($feature.policies)) {
+        if (-not $policies.ContainsKey([string]$policyName)) {
+            throw "Feature '$featureId' references undefined policy '$policyName'."
+        }
+    }
+}
+
 foreach ($patch in @($manifest.profilePreferencePatches)) {
     if ([string]::IsNullOrWhiteSpace([string]$patch.path)) {
         throw 'Profile patch is missing a path.'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$patch.feature)) {
+        throw "Profile patch '$($patch.path)' is missing a feature id."
+    }
+    if (-not $featureIds.Contains([string]$patch.feature)) {
+        throw "Profile patch '$($patch.path)' references unknown feature '$($patch.feature)'."
     }
     if ([string]$patch.path -match '(?i)shield') {
         throw "Profile patch '$($patch.path)' mentions Shields."

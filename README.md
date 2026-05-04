@@ -30,59 +30,85 @@ It uses official Brave/Chromium enterprise policies where possible, starts in dr
 - Brave Rewards, Wallet, VPN, Leo AI Chat, News, Talk, Playlist, Speedreader, and Wayback prompts
 - Brave telemetry surfaces such as P3A, stats ping, and Web Discovery
 - Chromium metrics, URL-keyed collection, Privacy Sandbox prompts, remote search suggestions, network prediction, and remote spellcheck
-- Aggressive preset extras such as background mode, promotions, Browser Labs, new tab cards, shopping list, QR generator, translate prompts, autofill, and the Google search side panel
+- Extreme preset extras such as background mode, promotions, Browser Labs, new tab cards, shopping list, QR generator, translate prompts, autofill, and the Google search side panel
 
 Optional profile preference cleanup can also hide some new tab sponsored/background and toolbar surfaces when Brave stores those preferences in per-profile `Preferences` JSON.
 
 ## Quick Start
 
-Preview the aggressive preset:
+Preview the extreme preset:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive
+.\Invoke-BraveDebloat.ps1 -Preset Extreme
 ```
 
 List the policies and optional profile preference patches without running the dry-run/apply flow:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive -List -IncludeProfilePreferences
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -List -IncludeProfilePreferences
+```
+
+List the available feature toggles:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -ListFeatures
 ```
 
 Apply it for the current Windows user:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive -Apply
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -Apply
 ```
 
 Apply it and enforce a safe Shields baseline:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive -LockShields -Apply
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -LockShields -Apply
+```
+
+Customize the preset interactively:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -Customize
+```
+
+Or make a scripted custom run:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -ExcludeFeature News,LeoAI
+.\Invoke-BraveDebloat.ps1 -Preset Standard -IncludeFeature Translate
 ```
 
 PowerShell `-WhatIf` is supported as a no-write preview even when `-Apply` is present:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive -Apply -WhatIf
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -Apply -WhatIf
 ```
 
 After applying, restart Brave and open `brave://policy` to verify the policies.
 
 ## Presets
 
-- `Core`: Brave-specific bloat and Brave telemetry.
-- `Privacy`: `Core` plus privacy-preserving policy defaults.
-- `Aggressive`: `Privacy` plus more UI and convenience surface cleanup.
+- `Standard`: Brave-specific bloat and Brave telemetry.
+- `High`: `Standard` plus privacy-preserving policy defaults.
+- `Extreme`: `High` plus more UI and convenience surface cleanup.
+- `Core`, `Privacy`, and `Aggressive`: compatibility aliases for `Standard`, `High`, and `Extreme`.
 - `-LockShields`: optional add-on that enforces default ad blocking, standard fingerprinting protection, HTTPS upgrades, and stricter referrer behavior.
 
-By default, the tool does not lock Shield behavior. It also refuses to apply policies that disable Shields, add Shield-disabled URLs, weaken Safe Browsing, or disable updates.
+By default, the tool uses `Extreme` and does not lock Shield behavior. It also refuses to apply policies that disable Shields, add Shield-disabled URLs, weaken Safe Browsing, or disable updates.
+
+## Feature Toggles
+
+Use `-Customize` for an interactive yes/no prompt for each cleanup, or use `-IncludeFeature` and `-ExcludeFeature` for repeatable commands. Feature names are shown by `-ListFeatures`; examples include `Rewards`, `Wallet`, `VPN`, `LeoAI`, `News`, `Talk`, `Autofill`, `Translate`, and `GoogleSearchSidePanel`.
+
+When `-IncludeProfilePreferences` is combined with custom feature choices, profile preference patches are filtered to the selected features.
 
 ## Profile Preferences
 
 Registry policies are the main path because they are supported and visible in `brave://policy`. For cosmetic cleanup that Brave stores per profile, close Brave and run:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive -IncludeProfilePreferences -Apply
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -IncludeProfilePreferences -Apply
 ```
 
 If Brave is running, profile preference cleanup is skipped to avoid writing files that Brave may overwrite.
@@ -110,7 +136,7 @@ Restore validates backup metadata before writing. Registry restores are limited 
 Current-user policy is the default and does not require administrator rights. For machine-wide policy, run PowerShell as administrator:
 
 ```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Aggressive -Scope LocalMachine -Apply
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -Scope LocalMachine -Apply
 ```
 
 ## Sources

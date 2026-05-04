@@ -21,13 +21,13 @@ jobs:
         shell: pwsh
         run: ./scripts/Test-Behavior.ps1
 
-      - name: Dry-run aggressive preset
+      - name: Dry-run extreme preset
         shell: pwsh
-        run: ./Invoke-BraveDebloat.ps1 -Preset Aggressive -LockShields
+        run: ./Invoke-BraveDebloat.ps1 -Preset Extreme -LockShields
 
       - name: Validate Windows PowerShell 5.1 compatibility
         shell: powershell
         run: |
           ./scripts/Test-PolicyManifest.ps1
           ./scripts/Test-Behavior.ps1
-          ./Invoke-BraveDebloat.ps1 -Preset Aggressive -LockShields
+          ./Invoke-BraveDebloat.ps1 -Preset Extreme -LockShields
