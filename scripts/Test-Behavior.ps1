@@ -54,6 +54,51 @@ try {
     $includeOutput = (& $scriptPath -Preset Standard -IncludeFeature Translate -List *>&1 | Out-String)
     Assert-TextContains -Text $includeOutput -Expected 'TranslateEnabled' -Context '-IncludeFeature output'
 
+    $onlyOutput = (& $scriptPath -OnlyFeature Rewards,Wallet -List *>&1 | Out-String)
+    Assert-TextContains -Text $onlyOutput -Expected 'BraveRewardsDisabled' -Context '-OnlyFeature output'
+    Assert-TextContains -Text $onlyOutput -Expected 'BraveWalletDisabled' -Context '-OnlyFeature output'
+    Assert-TextDoesNotContain -Text $onlyOutput -Unexpected 'BraveVPNDisabled' -Context '-OnlyFeature output'
+    Assert-TextDoesNotContain -Text $onlyOutput -Unexpected 'BraveAIChatEnabled' -Context '-OnlyFeature output'
+
+    $onlyPatchOutput = (& $scriptPath -OnlyFeature Rewards -List -IncludeProfilePreferences *>&1 | Out-String)
+    Assert-TextContains -Text $onlyPatchOutput -Expected 'brave.rewards.enabled' -Context '-OnlyFeature profile patch output'
+    Assert-TextDoesNotContain -Text $onlyPatchOutput -Unexpected 'brave.new_tab_page.show_branded_background_image' -Context '-OnlyFeature profile patch output'
+    Assert-TextDoesNotContain -Text $onlyPatchOutput -Unexpected 'brave.wallet.show_wallet_icon_on_toolbar' -Context '-OnlyFeature profile patch output'
+
+    $onlyDryRunOutput = (& $scriptPath -OnlyFeature Rewards *>&1 | Out-String)
+    Assert-TextContains -Text $onlyDryRunOutput -Expected 'Preset: (none - OnlyFeature mode)' -Context '-OnlyFeature dry-run output'
+    Assert-TextContains -Text $onlyDryRunOutput -Expected 'Custom features: Rewards' -Context '-OnlyFeature dry-run output'
+    Assert-TextDoesNotContain -Text $onlyDryRunOutput -Unexpected 'Preset: Extreme' -Context '-OnlyFeature dry-run output'
+
+    $blankOnlyFeatureFailed = $false
+    try {
+        & $scriptPath -OnlyFeature ' ' | Out-Null
+    }
+    catch {
+        $blankOnlyFeatureFailed = $_.Exception.Message -match 'Specified -OnlyFeature contains only blank entries'
+    }
+    if (-not $blankOnlyFeatureFailed) {
+        throw '-OnlyFeature did not reject blank-only input.'
+    }
+
+    $onlyConflictCommands = @(
+        { & $scriptPath -OnlyFeature Rewards -ExcludeFeature Wallet -List | Out-Null },
+        { & $scriptPath -OnlyFeature Rewards -IncludeFeature Wallet -List | Out-Null },
+        { & $scriptPath -OnlyFeature Rewards -Customize -List | Out-Null }
+    )
+    foreach ($command in $onlyConflictCommands) {
+        $onlyConflictFailed = $false
+        try {
+            & $command
+        }
+        catch {
+            $onlyConflictFailed = $_.Exception.Message -match 'OnlyFeature cannot be combined'
+        }
+        if (-not $onlyConflictFailed) {
+            throw '-OnlyFeature did not reject a conflicting custom feature switch.'
+        }
+    }
+
     $filteredPatchOutput = (& $scriptPath -Preset Extreme -ExcludeFeature News,Rewards,Wallet -List -IncludeProfilePreferences *>&1 | Out-String)
     Assert-TextContains -Text $filteredPatchOutput -Expected 'brave.new_tab_page.show_branded_background_image' -Context 'filtered profile patch output'
     Assert-TextDoesNotContain -Text $filteredPatchOutput -Unexpected 'brave.today.should_show_toolbar_button' -Context 'filtered profile patch output'

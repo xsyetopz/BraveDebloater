@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Added `-OnlyFeature` for running exactly selected feature cleanups without starting from a preset.
+
 ## 0.2.0 - 2026-05-04
 
 - Added friendly `Standard`, `High`, and `Extreme` presets while keeping the original preset names as aliases.

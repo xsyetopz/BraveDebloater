@@ -13,6 +13,8 @@ param(
 
     [switch]$Customize,
 
+    [string[]]$OnlyFeature = @(),
+
     [string[]]$IncludeFeature = @(),
 
     [string[]]$ExcludeFeature = @(),
@@ -184,11 +186,28 @@ function Assert-FeatureNames {
     )
 
     foreach ($name in @($Names)) {
+        if ([string]::IsNullOrWhiteSpace([string]$name)) {
+            continue
+        }
         if (-not $FeatureMap.ContainsKey($name)) {
             $available = ($FeatureMap.Keys | Sort-Object) -join ', '
             throw "Unknown feature '$name'. Available features: $available"
         }
     }
+}
+
+function Normalize-FeatureNames {
+    param([string[]]$Names)
+
+    $normalized = New-Object System.Collections.Generic.List[string]
+    foreach ($name in @($Names)) {
+        $trimmed = ([string]$name).Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed)) {
+            continue
+        }
+        Add-StringIfMissing -List $normalized -Value $trimmed
+    }
+    return $normalized.ToArray()
 }
 
 function Assert-FeatureReferences {
@@ -277,10 +296,16 @@ function Resolve-FeatureSelection {
     }
 
     foreach ($featureName in @($IncludeNames)) {
+        if ([string]::IsNullOrWhiteSpace([string]$featureName)) {
+            continue
+        }
         Set-FeatureSelection -Feature $FeatureMap[$featureName] -PolicyNames $PolicyNames -SelectedFeatureIds $selectedFeatureIds -Selected:$true
     }
 
     foreach ($featureName in @($ExcludeNames)) {
+        if ([string]::IsNullOrWhiteSpace([string]$featureName)) {
+            continue
+        }
         Set-FeatureSelection -Feature $FeatureMap[$featureName] -PolicyNames $PolicyNames -SelectedFeatureIds $selectedFeatureIds -Selected:$false
     }
 
@@ -956,22 +981,41 @@ $features = @($manifest.features)
 $featureMap = Get-FeatureMap -Features $features
 Assert-FeatureReferences -Features $features -PolicyDefinitions $policyDefinitions
 
-Assert-FeatureNames -Names $IncludeFeature -FeatureMap $featureMap
-Assert-FeatureNames -Names $ExcludeFeature -FeatureMap $featureMap
-foreach ($featureName in @($IncludeFeature)) {
-    if (@($ExcludeFeature) -contains $featureName) {
+$normalizedOnlyFeature = @(Normalize-FeatureNames -Names $OnlyFeature)
+$normalizedIncludeFeature = @(Normalize-FeatureNames -Names $IncludeFeature)
+$normalizedExcludeFeature = @(Normalize-FeatureNames -Names $ExcludeFeature)
+
+if ($PSBoundParameters.ContainsKey('OnlyFeature') -and $normalizedOnlyFeature.Count -eq 0) {
+    throw 'Specified -OnlyFeature contains only blank entries; please provide a valid feature name.'
+}
+
+Assert-FeatureNames -Names $normalizedIncludeFeature -FeatureMap $featureMap
+Assert-FeatureNames -Names $normalizedExcludeFeature -FeatureMap $featureMap
+Assert-FeatureNames -Names $normalizedOnlyFeature -FeatureMap $featureMap
+foreach ($featureName in $normalizedIncludeFeature) {
+    if ($normalizedExcludeFeature -contains $featureName) {
         throw "Feature '$featureName' cannot be both included and excluded."
     }
 }
 
-$policyNames = New-Object System.Collections.Generic.List[string]
-
-foreach ($name in Resolve-PresetPolicies -Name $Preset -Presets $presets) {
-    [void]$policyNames.Add($name)
+$onlyFeatureMode = $normalizedOnlyFeature.Count -gt 0
+if ($onlyFeatureMode -and ($Customize -or $normalizedIncludeFeature.Count -gt 0 -or $normalizedExcludeFeature.Count -gt 0)) {
+    throw '-OnlyFeature cannot be combined with -Customize, -IncludeFeature, or -ExcludeFeature.'
 }
 
-$customFeatureRequested = $Customize -or @($IncludeFeature).Count -gt 0 -or @($ExcludeFeature).Count -gt 0
-$selectedFeatureIds = @(Resolve-FeatureSelection -Features $features -FeatureMap $featureMap -PolicyNames $policyNames -PresetName $Preset -IncludeNames $IncludeFeature -ExcludeNames $ExcludeFeature -UsePrompt:$Customize)
+$policyNames = New-Object System.Collections.Generic.List[string]
+
+if (-not $onlyFeatureMode) {
+    foreach ($name in Resolve-PresetPolicies -Name $Preset -Presets $presets) {
+        [void]$policyNames.Add($name)
+    }
+}
+
+$customFeatureRequested = $onlyFeatureMode -or $Customize -or $normalizedIncludeFeature.Count -gt 0 -or $normalizedExcludeFeature.Count -gt 0
+$featurePresetName = if ($onlyFeatureMode) { '__OnlyFeature' } else { $Preset }
+$featureIncludeNames = if ($onlyFeatureMode) { $normalizedOnlyFeature } else { $normalizedIncludeFeature }
+$featureExcludeNames = if ($onlyFeatureMode) { @() } else { $normalizedExcludeFeature }
+$selectedFeatureIds = @(Resolve-FeatureSelection -Features $features -FeatureMap $featureMap -PolicyNames $policyNames -PresetName $featurePresetName -IncludeNames $featureIncludeNames -ExcludeNames $featureExcludeNames -UsePrompt:$Customize)
 
 if ($LockShields) {
     foreach ($name in Resolve-PresetPolicies -Name 'ShieldBaseline' -Presets $presets) {
@@ -1012,7 +1056,12 @@ if ($List) {
 
 $registryPath = Get-RegistryBasePath -ScopeName $Scope
 
-Write-Step "Preset: $Preset"
+if ($onlyFeatureMode) {
+    Write-Step 'Preset: (none - OnlyFeature mode)'
+}
+else {
+    Write-Step "Preset: $Preset"
+}
 Write-Step "Scope: $Scope ($registryPath)"
 if ($LockShields) {
     Write-Step 'Shield baseline: enabled. This enforces ad blocking, standard fingerprinting protection, HTTPS upgrade, and referrer capping.'
