@@ -77,6 +77,7 @@ Or make a scripted custom run:
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -ExcludeFeature News,LeoAI
 .\Invoke-BraveDebloat.ps1 -Preset Standard -IncludeFeature Translate
+.\Invoke-BraveDebloat.ps1 -OnlyFeature Rewards,Wallet,VPN
 ```
 
 PowerShell `-WhatIf` is supported as a no-write preview even when `-Apply` is present:
@@ -100,6 +101,8 @@ By default, the tool uses `Extreme` and does not lock Shield behavior. It also r
 ## Feature Toggles
 
 Use `-Customize` for an interactive yes/no prompt for each cleanup, or use `-IncludeFeature` and `-ExcludeFeature` for repeatable commands. Feature names are shown by `-ListFeatures`; examples include `Rewards`, `Wallet`, `VPN`, `LeoAI`, `News`, `Talk`, `Autofill`, `Translate`, and `GoogleSearchSidePanel`.
+
+Use `-OnlyFeature` when you want exactly the named cleanups without starting from a preset.
 
 When `-IncludeProfilePreferences` is combined with custom feature choices, profile preference patches are filtered to the selected features.
 
