@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+tone_instructions: "Be concise and direct. Prioritize correctness, safety, Windows PowerShell 5.1 compatibility, and user-impacting behavior over style nits."
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  review_details: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+  path_instructions:
+    - path: "Invoke-BraveDebloat.ps1"
+      instructions: "Focus on Windows PowerShell 5.1 compatibility, ShouldProcess and WhatIf behavior, registry safety, backup and restore behavior, profile JSON writes, and dry-run clarity. Avoid cosmetic style comments unless they affect safety or readability."
+    - path: "config/policies.json"
+      instructions: "Verify policy names, preset inheritance, feature mappings, and safety blocks. Pay special attention to anything that could disable Brave Shields, weaken Safe Browsing, disable updates, or make profile cleanup too broad."
+    - path: "scripts/*.ps1"
+      instructions: "Check that tests cover manifest integrity, feature toggles, restore validation, dry-run behavior, and Windows PowerShell 5.1 compatibility."
+    - path: ".github/workflows/*.yml"
+      instructions: "Check that CI still validates both PowerShell 7 and Windows PowerShell 5.1 paths."
+
+chat:
+  auto_reply: true
