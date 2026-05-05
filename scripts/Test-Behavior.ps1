@@ -70,15 +70,26 @@ try {
     Assert-TextContains -Text $onlyDryRunOutput -Expected 'Custom features: Rewards' -Context '-OnlyFeature dry-run output'
     Assert-TextDoesNotContain -Text $onlyDryRunOutput -Unexpected 'Preset: Extreme' -Context '-OnlyFeature dry-run output'
 
-    $onlyConflictFailed = $false
-    try {
-        & $scriptPath -OnlyFeature Rewards -ExcludeFeature Wallet -List | Out-Null
-    }
-    catch {
-        $onlyConflictFailed = $_.Exception.Message -match 'OnlyFeature cannot be combined'
-    }
-    if (-not $onlyConflictFailed) {
-        throw '-OnlyFeature did not reject conflicting custom feature switches.'
+    $blankOnlyFeatureOutput = (& $scriptPath -OnlyFeature ' ' *>&1 | Out-String)
+    Assert-TextContains -Text $blankOnlyFeatureOutput -Expected 'Preset: Extreme' -Context 'blank -OnlyFeature output'
+    Assert-TextDoesNotContain -Text $blankOnlyFeatureOutput -Unexpected 'OnlyFeature mode' -Context 'blank -OnlyFeature output'
+
+    $onlyConflictCommands = @(
+        { & $scriptPath -OnlyFeature Rewards -ExcludeFeature Wallet -List | Out-Null },
+        { & $scriptPath -OnlyFeature Rewards -IncludeFeature Wallet -List | Out-Null },
+        { & $scriptPath -OnlyFeature Rewards -Customize -List | Out-Null }
+    )
+    foreach ($command in $onlyConflictCommands) {
+        $onlyConflictFailed = $false
+        try {
+            & $command
+        }
+        catch {
+            $onlyConflictFailed = $_.Exception.Message -match 'OnlyFeature cannot be combined'
+        }
+        if (-not $onlyConflictFailed) {
+            throw '-OnlyFeature did not reject a conflicting custom feature switch.'
+        }
     }
 
     $filteredPatchOutput = (& $scriptPath -Preset Extreme -ExcludeFeature News,Rewards,Wallet -List -IncludeProfilePreferences *>&1 | Out-String)

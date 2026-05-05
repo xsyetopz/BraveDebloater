@@ -196,6 +196,20 @@ function Assert-FeatureNames {
     }
 }
 
+function Normalize-FeatureNames {
+    param([string[]]$Names)
+
+    $normalized = New-Object System.Collections.Generic.List[string]
+    foreach ($name in @($Names)) {
+        $trimmed = ([string]$name).Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed)) {
+            continue
+        }
+        Add-StringIfMissing -List $normalized -Value $trimmed
+    }
+    return $normalized.ToArray()
+}
+
 function Assert-FeatureReferences {
     param(
         [object[]]$Features,
@@ -967,17 +981,21 @@ $features = @($manifest.features)
 $featureMap = Get-FeatureMap -Features $features
 Assert-FeatureReferences -Features $features -PolicyDefinitions $policyDefinitions
 
-Assert-FeatureNames -Names $IncludeFeature -FeatureMap $featureMap
-Assert-FeatureNames -Names $ExcludeFeature -FeatureMap $featureMap
-Assert-FeatureNames -Names $OnlyFeature -FeatureMap $featureMap
-foreach ($featureName in @($IncludeFeature)) {
-    if (@($ExcludeFeature) -contains $featureName) {
+$normalizedOnlyFeature = @(Normalize-FeatureNames -Names $OnlyFeature)
+$normalizedIncludeFeature = @(Normalize-FeatureNames -Names $IncludeFeature)
+$normalizedExcludeFeature = @(Normalize-FeatureNames -Names $ExcludeFeature)
+
+Assert-FeatureNames -Names $normalizedIncludeFeature -FeatureMap $featureMap
+Assert-FeatureNames -Names $normalizedExcludeFeature -FeatureMap $featureMap
+Assert-FeatureNames -Names $normalizedOnlyFeature -FeatureMap $featureMap
+foreach ($featureName in $normalizedIncludeFeature) {
+    if ($normalizedExcludeFeature -contains $featureName) {
         throw "Feature '$featureName' cannot be both included and excluded."
     }
 }
 
-$onlyFeatureMode = @($OnlyFeature).Count -gt 0
-if ($onlyFeatureMode -and ($Customize -or @($IncludeFeature).Count -gt 0 -or @($ExcludeFeature).Count -gt 0)) {
+$onlyFeatureMode = $normalizedOnlyFeature.Count -gt 0
+if ($onlyFeatureMode -and ($Customize -or $normalizedIncludeFeature.Count -gt 0 -or $normalizedExcludeFeature.Count -gt 0)) {
     throw '-OnlyFeature cannot be combined with -Customize, -IncludeFeature, or -ExcludeFeature.'
 }
 
@@ -989,10 +1007,10 @@ if (-not $onlyFeatureMode) {
     }
 }
 
-$customFeatureRequested = $onlyFeatureMode -or $Customize -or @($IncludeFeature).Count -gt 0 -or @($ExcludeFeature).Count -gt 0
+$customFeatureRequested = $onlyFeatureMode -or $Customize -or $normalizedIncludeFeature.Count -gt 0 -or $normalizedExcludeFeature.Count -gt 0
 $featurePresetName = if ($onlyFeatureMode) { '__OnlyFeature' } else { $Preset }
-$featureIncludeNames = if ($onlyFeatureMode) { $OnlyFeature } else { $IncludeFeature }
-$featureExcludeNames = if ($onlyFeatureMode) { @() } else { $ExcludeFeature }
+$featureIncludeNames = if ($onlyFeatureMode) { $normalizedOnlyFeature } else { $normalizedIncludeFeature }
+$featureExcludeNames = if ($onlyFeatureMode) { @() } else { $normalizedExcludeFeature }
 $selectedFeatureIds = @(Resolve-FeatureSelection -Features $features -FeatureMap $featureMap -PolicyNames $policyNames -PresetName $featurePresetName -IncludeNames $featureIncludeNames -ExcludeNames $featureExcludeNames -UsePrompt:$Customize)
 
 if ($LockShields) {
