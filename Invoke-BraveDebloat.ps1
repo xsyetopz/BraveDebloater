@@ -196,7 +196,7 @@ function Assert-FeatureNames {
     }
 }
 
-function Normalize-FeatureNames {
+function Get-NormalizedFeatureName {
     param([string[]]$Names)
 
     $normalized = New-Object System.Collections.Generic.List[string]
@@ -981,9 +981,9 @@ $features = @($manifest.features)
 $featureMap = Get-FeatureMap -Features $features
 Assert-FeatureReferences -Features $features -PolicyDefinitions $policyDefinitions
 
-$normalizedOnlyFeature = @(Normalize-FeatureNames -Names $OnlyFeature)
-$normalizedIncludeFeature = @(Normalize-FeatureNames -Names $IncludeFeature)
-$normalizedExcludeFeature = @(Normalize-FeatureNames -Names $ExcludeFeature)
+$normalizedOnlyFeature = @(Get-NormalizedFeatureName -Names $OnlyFeature)
+$normalizedIncludeFeature = @(Get-NormalizedFeatureName -Names $IncludeFeature)
+$normalizedExcludeFeature = @(Get-NormalizedFeatureName -Names $ExcludeFeature)
 
 if ($PSBoundParameters.ContainsKey('OnlyFeature') -and $normalizedOnlyFeature.Count -eq 0) {
     throw 'Specified -OnlyFeature contains only blank entries; please provide a valid feature name.'
