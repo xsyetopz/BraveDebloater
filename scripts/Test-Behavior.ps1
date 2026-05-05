@@ -70,9 +70,16 @@ try {
     Assert-TextContains -Text $onlyDryRunOutput -Expected 'Custom features: Rewards' -Context '-OnlyFeature dry-run output'
     Assert-TextDoesNotContain -Text $onlyDryRunOutput -Unexpected 'Preset: Extreme' -Context '-OnlyFeature dry-run output'
 
-    $blankOnlyFeatureOutput = (& $scriptPath -OnlyFeature ' ' *>&1 | Out-String)
-    Assert-TextContains -Text $blankOnlyFeatureOutput -Expected 'Preset: Extreme' -Context 'blank -OnlyFeature output'
-    Assert-TextDoesNotContain -Text $blankOnlyFeatureOutput -Unexpected 'OnlyFeature mode' -Context 'blank -OnlyFeature output'
+    $blankOnlyFeatureFailed = $false
+    try {
+        & $scriptPath -OnlyFeature ' ' | Out-Null
+    }
+    catch {
+        $blankOnlyFeatureFailed = $_.Exception.Message -match 'Specified -OnlyFeature contains only blank entries'
+    }
+    if (-not $blankOnlyFeatureFailed) {
+        throw '-OnlyFeature did not reject blank-only input.'
+    }
 
     $onlyConflictCommands = @(
         { & $scriptPath -OnlyFeature Rewards -ExcludeFeature Wallet -List | Out-Null },

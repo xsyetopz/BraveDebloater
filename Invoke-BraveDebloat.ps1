@@ -985,6 +985,10 @@ $normalizedOnlyFeature = @(Normalize-FeatureNames -Names $OnlyFeature)
 $normalizedIncludeFeature = @(Normalize-FeatureNames -Names $IncludeFeature)
 $normalizedExcludeFeature = @(Normalize-FeatureNames -Names $ExcludeFeature)
 
+if ($PSBoundParameters.ContainsKey('OnlyFeature') -and $normalizedOnlyFeature.Count -eq 0) {
+    throw 'Specified -OnlyFeature contains only blank entries; please provide a valid feature name.'
+}
+
 Assert-FeatureNames -Names $normalizedIncludeFeature -FeatureMap $featureMap
 Assert-FeatureNames -Names $normalizedExcludeFeature -FeatureMap $featureMap
 Assert-FeatureNames -Names $normalizedOnlyFeature -FeatureMap $featureMap
