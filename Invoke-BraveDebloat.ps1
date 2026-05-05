@@ -1034,7 +1034,12 @@ if ($List) {
 
 $registryPath = Get-RegistryBasePath -ScopeName $Scope
 
-Write-Step "Preset: $Preset"
+if ($onlyFeatureMode) {
+    Write-Step 'Preset: (none - OnlyFeature mode)'
+}
+else {
+    Write-Step "Preset: $Preset"
+}
 Write-Step "Scope: $Scope ($registryPath)"
 if ($LockShields) {
     Write-Step 'Shield baseline: enabled. This enforces ad blocking, standard fingerprinting protection, HTTPS upgrade, and referrer capping.'
