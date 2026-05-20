@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added Greptile review configuration for safety-focused pull request feedback.
 - Added `-OnlyFeature` for running exactly selected feature cleanups without starting from a preset.
 
 ## 0.2.0 - 2026-05-04

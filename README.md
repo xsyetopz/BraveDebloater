@@ -162,3 +162,5 @@ Run the built-in manifest and syntax checks:
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/osfv/BraveDebloater?utm_source=oss&utm_medium=github&utm_campaign=osfv%2FBraveDebloater&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 Pull requests are configured for CodeRabbit review with repo-specific guidance in `.coderabbit.yaml`. Reviews should focus on PowerShell 5.1 compatibility, registry safety, backup/restore behavior, policy manifest integrity, and dry-run clarity.
+
+Greptile review guidance lives in `greptile.json` and mirrors the same safety-first focus for PowerShell compatibility, policy changes, registry writes, profile JSON writes, and feature-toggle behavior.
