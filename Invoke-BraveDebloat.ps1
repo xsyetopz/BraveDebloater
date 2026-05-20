@@ -625,6 +625,7 @@ function Get-RegistryPolicyReport {
     catch {
         $canRead = $false
         $errorMessage = $_.Exception.Message
+        $entries.Clear()
     }
 
     return [pscustomobject]@{
@@ -655,7 +656,7 @@ function Test-PolicyValueMatches {
     )
 
     try {
-        if ($Type -eq 'DWord') {
+        if ($Type -eq 'DWord' -or $Type -eq 'QWord') {
             return ([int64]$ActualValue -eq [int64]$ExpectedValue)
         }
         if ($Type -eq 'String') {
@@ -1286,6 +1287,9 @@ $featureMap = Get-FeatureMap -Features $features
 Assert-FeatureReferences -Features $features -PolicyDefinitions $policyDefinitions
 
 if ($Doctor) {
+    if ($Apply) {
+        Write-Warning '-Doctor is read-only. -Apply is ignored in Doctor mode.'
+    }
     Show-DoctorReport -Manifest $manifest -Features $features -PolicyDefinitions $policyDefinitions -ProfileRoot $ProfileRoot -BackupDirectory $BackupDirectory
     return
 }

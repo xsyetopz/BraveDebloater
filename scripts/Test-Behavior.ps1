@@ -60,6 +60,16 @@ try {
     Assert-TextDoesNotContain -Text $doctorOutput -Unexpected '[dry-run]' -Context '-Doctor output'
     Assert-TextDoesNotContain -Text $doctorOutput -Unexpected 'Would set' -Context '-Doctor output'
 
+    $doctorApplyBackupDirectory = Join-Path $tempRoot 'DoctorApplyBackups'
+    $doctorApplyOutput = (& $scriptPath -Doctor -Apply -ProfileRoot $missingProfileRoot -BackupDirectory $doctorApplyBackupDirectory *>&1 | Out-String)
+    Assert-TextContains -Text $doctorApplyOutput -Expected '-Doctor is read-only. -Apply is ignored in Doctor mode.' -Context '-Doctor -Apply output'
+    Assert-TextContains -Text $doctorApplyOutput -Expected 'Doctor report (read-only)' -Context '-Doctor -Apply output'
+    Assert-TextDoesNotContain -Text $doctorApplyOutput -Unexpected 'Backup written' -Context '-Doctor -Apply output'
+    Assert-TextDoesNotContain -Text $doctorApplyOutput -Unexpected 'Would set' -Context '-Doctor -Apply output'
+    if (Test-Path -LiteralPath $doctorApplyBackupDirectory) {
+        throw '-Doctor -Apply created a backup directory.'
+    }
+
     $excludeOutput = (& $scriptPath -Preset Extreme -ExcludeFeature News,LeoAI -List *>&1 | Out-String)
     Assert-TextContains -Text $excludeOutput -Expected 'BraveRewardsDisabled' -Context '-ExcludeFeature output'
     Assert-TextDoesNotContain -Text $excludeOutput -Unexpected 'BraveNewsDisabled' -Context '-ExcludeFeature output'
