@@ -54,6 +54,12 @@ List the available feature toggles:
 .\Invoke-BraveDebloat.ps1 -ListFeatures
 ```
 
+Run a read-only health check of Brave policies, backups, profile files, and detected feature status:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Doctor
+```
+
 Apply it for the current Windows user:
 
 ```powershell
@@ -105,6 +111,12 @@ Use `-Customize` for an interactive yes/no prompt for each cleanup, or use `-Inc
 Use `-OnlyFeature` when you want exactly the named cleanups without starting from a preset.
 
 When `-IncludeProfilePreferences` is combined with custom feature choices, profile preference patches are filtered to the selected features.
+
+## Doctor Mode
+
+Use `-Doctor` to inspect the current Brave policy state without writing anything. It reports CurrentUser and LocalMachine policy keys, detected feature status, unknown Brave policies, protected policy names, Brave process state, profile preference files, and available backups.
+
+This is useful after testing other debloat tools because machine-wide policies can make Brave settings appear managed for every Windows user.
 
 ## Profile Preferences
 
