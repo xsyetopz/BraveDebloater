@@ -9,6 +9,8 @@ param(
 
     [switch]$Apply,
 
+    [switch]$Doctor,
+
     [switch]$LockShields,
 
     [switch]$Customize,
@@ -318,6 +320,16 @@ function Test-IsAdministrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
+function Get-RegistryPolicyPath {
+    param([string]$ScopeName)
+
+    if ($ScopeName -eq 'LocalMachine') {
+        return 'Registry::HKEY_LOCAL_MACHINE\Software\Policies\BraveSoftware\Brave'
+    }
+
+    return 'Registry::HKEY_CURRENT_USER\Software\Policies\BraveSoftware\Brave'
+}
+
 function Get-RegistryBasePath {
     param([string]$ScopeName)
 
@@ -325,10 +337,9 @@ function Get-RegistryBasePath {
         if (-not (Test-IsAdministrator)) {
             throw 'LocalMachine scope requires an elevated PowerShell session. Use -Scope CurrentUser or run as administrator.'
         }
-        return 'Registry::HKEY_LOCAL_MACHINE\Software\Policies\BraveSoftware\Brave'
     }
 
-    return 'Registry::HKEY_CURRENT_USER\Software\Policies\BraveSoftware\Brave'
+    return (Get-RegistryPolicyPath -ScopeName $ScopeName)
 }
 
 function Get-FullFileSystemPath {
@@ -517,6 +528,33 @@ function Assert-PolicySafety {
     }
 }
 
+function Get-PolicySafetyFinding {
+    param(
+        [string[]]$PolicyNames,
+        [Parameter(Mandatory = $true)]$Manifest
+    )
+
+    $findings = New-Object System.Collections.Generic.List[string]
+    $blockedNames = @($Manifest.safety.blockedPolicyNames)
+    $blockedPatterns = @($Manifest.safety.blockedNamePatterns)
+
+    foreach ($policyName in $PolicyNames) {
+        if ($blockedNames -contains $policyName) {
+            [void]$findings.Add("Protected policy '$policyName' is present.")
+            continue
+        }
+
+        foreach ($pattern in $blockedPatterns) {
+            if ($policyName -match $pattern) {
+                [void]$findings.Add("Policy '$policyName' matches protected pattern '$pattern'.")
+                break
+            }
+        }
+    }
+
+    return $findings.ToArray()
+}
+
 function Get-RegistrySnapshot {
     param(
         [string]$BasePath,
@@ -556,6 +594,138 @@ function Get-RegistrySnapshot {
     }
 
     return $snapshot.ToArray()
+}
+
+function Get-RegistryPolicyReport {
+    param([string]$ScopeName)
+
+    $path = Get-RegistryPolicyPath -ScopeName $ScopeName
+    $entries = New-Object System.Collections.Generic.List[object]
+    $keyExists = $false
+    $canRead = $true
+    $errorMessage = ''
+
+    try {
+        $keyExists = Test-Path -LiteralPath $path
+        if ($keyExists) {
+            $key = Get-Item -LiteralPath $path
+            foreach ($name in $key.GetValueNames()) {
+                if ([string]::IsNullOrWhiteSpace($name)) {
+                    continue
+                }
+
+                [void]$entries.Add([pscustomobject]@{
+                        Name = [string]$name
+                        Value = $key.GetValue($name, $null)
+                        Kind = $key.GetValueKind($name).ToString()
+                    })
+            }
+        }
+    }
+    catch {
+        $canRead = $false
+        $errorMessage = $_.Exception.Message
+    }
+
+    return [pscustomobject]@{
+        Scope = $ScopeName
+        Path = $path
+        KeyExists = $keyExists
+        CanRead = $canRead
+        ErrorMessage = $errorMessage
+        Entries = $entries.ToArray()
+    }
+}
+
+function Get-PolicyEntryMap {
+    param([object[]]$Entries)
+
+    $map = @{}
+    foreach ($entry in @($Entries)) {
+        $map[[string]$entry.Name] = $entry
+    }
+    return $map
+}
+
+function Test-PolicyValueMatches {
+    param(
+        $ActualValue,
+        $ExpectedValue,
+        [string]$Type
+    )
+
+    try {
+        if ($Type -eq 'DWord') {
+            return ([int64]$ActualValue -eq [int64]$ExpectedValue)
+        }
+        if ($Type -eq 'String') {
+            return ([string]$ActualValue -eq [string]$ExpectedValue)
+        }
+    }
+    catch {
+        return $false
+    }
+
+    return $false
+}
+
+function Get-FeaturePolicyStatus {
+    param(
+        [Parameter(Mandatory = $true)]$Feature,
+        [hashtable]$PolicyEntries,
+        [hashtable]$PolicyDefinitions
+    )
+
+    $policies = @($Feature.policies)
+    if ($policies.Count -eq 0) {
+        return 'Profile-only'
+    }
+
+    $present = 0
+    $matching = 0
+    foreach ($policyName in $policies) {
+        if (-not $PolicyEntries.ContainsKey($policyName)) {
+            continue
+        }
+
+        $present++
+        $definition = $PolicyDefinitions[$policyName]
+        if (Test-PolicyValueMatches -ActualValue $PolicyEntries[$policyName].Value -ExpectedValue $definition.value -Type ([string]$definition.type)) {
+            $matching++
+        }
+    }
+
+    if ($present -eq 0) {
+        return 'Not applied'
+    }
+    if ($matching -eq $policies.Count) {
+        return 'Applied'
+    }
+    if ($matching -gt 0) {
+        return 'Partial'
+    }
+    return 'Different'
+}
+
+function Get-BackupSummary {
+    param([string]$Directory)
+
+    $fullDirectory = Get-FullFileSystemPath -Path $Directory
+    $files = @()
+    if (Test-Path -LiteralPath $fullDirectory) {
+        $files = @(Get-ChildItem -LiteralPath $fullDirectory -Filter 'BraveDebloater-*.json' | Where-Object { -not $_.PSIsContainer } | Sort-Object LastWriteTime -Descending)
+    }
+
+    $latest = ''
+    if ($files.Count -gt 0) {
+        $latest = $files[0].FullName
+    }
+
+    return [pscustomobject]@{
+        Directory = $fullDirectory
+        Count = $files.Count
+        Latest = $latest
+    }
 }
 
 function New-BackupPath {
@@ -955,6 +1125,136 @@ function Show-ProfilePreferencePatchList {
     $rows | Format-Table -AutoSize -Wrap
 }
 
+function Show-DoctorReport {
+    param(
+        [Parameter(Mandatory = $true)]$Manifest,
+        [object[]]$Features,
+        [hashtable]$PolicyDefinitions,
+        [string]$ProfileRoot,
+        [string]$BackupDirectory
+    )
+
+    Write-Step 'Doctor report (read-only). No registry, backup, or profile files will be changed.'
+
+    $currentUserReport = Get-RegistryPolicyReport -ScopeName 'CurrentUser'
+    $localMachineReport = Get-RegistryPolicyReport -ScopeName 'LocalMachine'
+    $reports = @($currentUserReport, $localMachineReport)
+
+    foreach ($report in $reports) {
+        if (-not $report.CanRead) {
+            Write-Step "$($report.Scope) policies: read failed ($($report.ErrorMessage))"
+            continue
+        }
+
+        if ($report.Entries.Count -gt 0) {
+            Write-Step "$($report.Scope) policies: found $($report.Entries.Count) value(s)."
+        }
+        elseif ($report.KeyExists) {
+            Write-Step "$($report.Scope) policies: key exists but has no values."
+        }
+        else {
+            Write-Step "$($report.Scope) policies: none detected."
+        }
+    }
+
+    if ($localMachineReport.CanRead -and $localMachineReport.Entries.Count -gt 0) {
+        Write-Step 'Machine-wide policies: detected. Brave may show managed settings for all users.'
+    }
+    else {
+        Write-Step 'Machine-wide policies: none detected.'
+    }
+
+    $allPolicyNames = @($reports | ForEach-Object { @($_.Entries) } | ForEach-Object { [string]$_.Name })
+    $safetyFindings = @(Get-PolicySafetyFinding -PolicyNames $allPolicyNames -Manifest $Manifest)
+    if ($safetyFindings.Count -eq 0) {
+        Write-Step 'Safety: no protected Brave policy names detected.'
+    }
+    else {
+        foreach ($finding in $safetyFindings) {
+            Write-Warning "Safety: $finding"
+        }
+    }
+
+    $braveProcesses = @(Get-Process -Name brave -ErrorAction SilentlyContinue)
+    if ($braveProcesses.Count -gt 0) {
+        Write-Step "Brave process: running ($($braveProcesses.Count) process(es)). Profile preference cleanup would be skipped."
+    }
+    else {
+        Write-Step 'Brave process: not running.'
+    }
+
+    $profileFiles = @(Get-BraveProfilePreferenceFiles -Root $ProfileRoot)
+    if (Test-Path -LiteralPath $ProfileRoot) {
+        Write-Step "Profile root: found ($($profileFiles.Count) Preferences file(s)) - $ProfileRoot"
+    }
+    else {
+        Write-Step "Profile root: missing - $ProfileRoot"
+    }
+
+    $backupSummary = Get-BackupSummary -Directory $BackupDirectory
+    Write-Step "Backups: $($backupSummary.Count) found in $($backupSummary.Directory)"
+    if (-not [string]::IsNullOrWhiteSpace($backupSummary.Latest)) {
+        Write-Step "Latest backup: $($backupSummary.Latest)"
+    }
+
+    $currentUserPolicies = Get-PolicyEntryMap -Entries $currentUserReport.Entries
+    $localMachinePolicies = Get-PolicyEntryMap -Entries $localMachineReport.Entries
+
+    Write-Step 'Policy scopes:'
+    $scopeRows = foreach ($report in $reports) {
+        $status = 'Missing'
+        if (-not $report.CanRead) {
+            $status = 'Read failed'
+        }
+        elseif ($report.Entries.Count -gt 0) {
+            $status = 'Found'
+        }
+        elseif ($report.KeyExists) {
+            $status = 'Empty'
+        }
+
+        [pscustomobject]@{
+            Scope = $report.Scope
+            Status = $status
+            Values = $report.Entries.Count
+            Path = $report.Path
+        }
+    }
+    $scopeRows | Format-Table -AutoSize -Wrap
+
+    Write-Step 'Feature status:'
+    $featureRows = foreach ($feature in @($Features)) {
+        [pscustomobject]@{
+            Feature = [string]$feature.id
+            CurrentUser = Get-FeaturePolicyStatus -Feature $feature -PolicyEntries $currentUserPolicies -PolicyDefinitions $PolicyDefinitions
+            LocalMachine = Get-FeaturePolicyStatus -Feature $feature -PolicyEntries $localMachinePolicies -PolicyDefinitions $PolicyDefinitions
+            Label = [string]$feature.label
+        }
+    }
+    $featureRows | Format-Table -AutoSize -Wrap
+
+    $unknownRows = foreach ($report in $reports) {
+        foreach ($entry in @($report.Entries)) {
+            if (-not $PolicyDefinitions.ContainsKey([string]$entry.Name)) {
+                [pscustomobject]@{
+                    Scope = $report.Scope
+                    Policy = [string]$entry.Name
+                    Value = $entry.Value
+                    Kind = [string]$entry.Kind
+                }
+            }
+        }
+    }
+
+    if (@($unknownRows).Count -gt 0) {
+        Write-Step 'Unknown Brave policies: detected. These may have been set by Brave, another tool, or an organization.'
+        $unknownRows | Format-Table -AutoSize -Wrap
+    }
+    else {
+        Write-Step 'Unknown Brave policies: none detected.'
+    }
+}
+
 $manifest = Get-Manifest
 $applyChanges = $Apply -and -not $WhatIfPreference
 $isWhatIf = $Apply -and $WhatIfPreference
@@ -980,6 +1280,11 @@ $policyDefinitions = Get-ManifestMap -Object $manifest.policies
 $features = @($manifest.features)
 $featureMap = Get-FeatureMap -Features $features
 Assert-FeatureReferences -Features $features -PolicyDefinitions $policyDefinitions
+
+if ($Doctor) {
+    Show-DoctorReport -Manifest $manifest -Features $features -PolicyDefinitions $policyDefinitions -ProfileRoot $ProfileRoot -BackupDirectory $BackupDirectory
+    return
+}
 
 $normalizedOnlyFeature = @(Get-NormalizedFeatureName -Names $OnlyFeature)
 $normalizedIncludeFeature = @(Get-NormalizedFeatureName -Names $IncludeFeature)

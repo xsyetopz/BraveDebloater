@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `-Doctor` for a read-only Brave policy, feature, backup, profile, and safety diagnostic report.
 - Added Greptile review configuration for safety-focused pull request feedback.
 - Added `-OnlyFeature` for running exactly selected feature cleanups without starting from a preset.
 
