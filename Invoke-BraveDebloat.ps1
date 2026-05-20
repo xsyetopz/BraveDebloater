@@ -1157,7 +1157,10 @@ function Show-DoctorReport {
         }
     }
 
-    if ($localMachineReport.CanRead -and $localMachineReport.Entries.Count -gt 0) {
+    if (-not $localMachineReport.CanRead) {
+        Write-Step 'Machine-wide policies: unknown because LocalMachine policies could not be read.'
+    }
+    elseif ($localMachineReport.Entries.Count -gt 0) {
         Write-Step 'Machine-wide policies: detected. Brave may show managed settings for all users.'
     }
     else {
@@ -1233,22 +1236,23 @@ function Show-DoctorReport {
     }
     $featureRows | Format-Table -AutoSize -Wrap
 
-    $unknownRows = foreach ($report in $reports) {
+    $unknownRows = New-Object System.Collections.Generic.List[object]
+    foreach ($report in $reports) {
         foreach ($entry in @($report.Entries)) {
             if (-not $PolicyDefinitions.ContainsKey([string]$entry.Name)) {
-                [pscustomobject]@{
-                    Scope = $report.Scope
-                    Policy = [string]$entry.Name
-                    Value = $entry.Value
-                    Kind = [string]$entry.Kind
-                }
+                [void]$unknownRows.Add([pscustomobject]@{
+                        Scope = $report.Scope
+                        Policy = [string]$entry.Name
+                        Value = $entry.Value
+                        Kind = [string]$entry.Kind
+                    })
             }
         }
     }
 
-    if (@($unknownRows).Count -gt 0) {
+    if ($unknownRows.Count -gt 0) {
         Write-Step 'Unknown Brave policies: detected. These may have been set by Brave, another tool, or an organization.'
-        $unknownRows | Format-Table -AutoSize -Wrap
+        $unknownRows.ToArray() | Format-Table -AutoSize -Wrap
     }
     else {
         Write-Step 'Unknown Brave policies: none detected.'
