@@ -1,0 +1,37 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax", "style"],
+  "triggerOnUpdates": true,
+  "statusCommentsEnabled": true,
+  "instructions": "Review BraveDebloater as a safety-first Windows PowerShell tool. Focus on Windows PowerShell 5.1 compatibility, ShouldProcess and WhatIf behavior, registry safety, backup and restore behavior, profile JSON writes, policy manifest integrity, feature-toggle behavior, and dry-run clarity. Avoid cosmetic comments unless they affect safety, compatibility, maintainability, or user-facing clarity.",
+  "customContext": {
+    "files": [
+      {
+        "path": "CONTRIBUTING.md",
+        "description": "Project contribution and validation guidance."
+      },
+      {
+        "path": "SECURITY.md",
+        "description": "Safety and vulnerability reporting guidance."
+      },
+      {
+        "path": "config/policies.json",
+        "description": "Policy manifest used by the PowerShell script and manifest checks."
+      }
+    ],
+    "rules": [
+      {
+        "rule": "PowerShell changes must remain compatible with Windows PowerShell 5.1 and avoid syntax that requires PowerShell 7 or newer.",
+        "scope": ["**/*.ps1"]
+      },
+      {
+        "rule": "Changes that can write registry keys or profile Preferences JSON must preserve dry-run behavior, WhatIf behavior, backup creation, and restore safety.",
+        "scope": ["Invoke-BraveDebloat.ps1", "scripts/**/*.ps1"]
+      },
+      {
+        "rule": "Feature-toggle and policy-manifest changes must keep feature names, presets, policy references, and profile preference patches consistent with config/policies.json.",
+        "scope": ["Invoke-BraveDebloat.ps1", "config/**/*.json", "scripts/**/*.ps1"]
+      }
+    ]
+  }
+}
