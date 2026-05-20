@@ -1,6 +1,6 @@
 {
   "strictness": 2,
-  "commentTypes": ["logic", "syntax", "style", "info"],
+  "commentTypes": ["logic", "syntax", "style"],
   "triggerOnUpdates": true,
   "statusCommentsEnabled": true,
   "instructions": "Review BraveDebloater as a safety-first Windows PowerShell tool. Focus on Windows PowerShell 5.1 compatibility, ShouldProcess and WhatIf behavior, registry safety, backup and restore behavior, profile JSON writes, policy manifest integrity, feature-toggle behavior, and dry-run clarity. Avoid cosmetic comments unless they affect safety, compatibility, maintainability, or user-facing clarity.",
