@@ -1169,11 +1169,22 @@ function Show-DoctorReport {
     }
 
     $allPolicyNames = @($reports | ForEach-Object { @($_.Entries) } | ForEach-Object { [string]$_.Name })
+    $unreadableScopes = New-Object System.Collections.Generic.List[string]
+    foreach ($report in $reports) {
+        if (-not $report.CanRead) {
+            [void]$unreadableScopes.Add([string]$report.Scope)
+        }
+    }
+
     $safetyFindings = @(Get-PolicySafetyFinding -PolicyNames $allPolicyNames -Manifest $Manifest)
-    if ($safetyFindings.Count -eq 0) {
+    if ($unreadableScopes.Count -gt 0) {
+        Write-Warning "Safety: check incomplete - $($unreadableScopes.ToArray() -join ', ') policies could not be read."
+    }
+
+    if ($safetyFindings.Count -eq 0 -and $unreadableScopes.Count -eq 0) {
         Write-Step 'Safety: no protected Brave policy names detected.'
     }
-    else {
+    elseif ($safetyFindings.Count -gt 0) {
         foreach ($finding in $safetyFindings) {
             Write-Warning "Safety: $finding"
         }
