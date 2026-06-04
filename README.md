@@ -172,6 +172,4 @@ Run the built-in manifest and syntax checks:
 
 ## Pull Request Review
 
-Pull requests are configured for CodeRabbit review with repo-specific guidance in `.coderabbit.yaml`. Reviews should focus on PowerShell 5.1 compatibility, registry safety, backup/restore behavior, policy manifest integrity, and dry-run clarity.
-
 Greptile review guidance lives in `greptile.json` and mirrors the same safety-first focus for PowerShell compatibility, policy changes, registry writes, profile JSON writes, and feature-toggle behavior.
