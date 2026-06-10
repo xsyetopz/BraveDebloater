@@ -1018,7 +1018,24 @@ function Invoke-ProfilePreferenceCleanup {
             Write-DryRun "Would inspect profile file $file."
         }
 
-        $json = Get-Content -LiteralPath $file -Raw | ConvertFrom-Json
+        $json = $null
+        try {
+            $raw = Get-Content -LiteralPath $file -Raw
+            if ([string]::IsNullOrWhiteSpace($raw)) {
+                throw 'The file is empty.'
+            }
+            $json = $raw | ConvertFrom-Json
+        }
+        catch {
+            Write-Warning "Skipping invalid profile Preferences file: $file ($($_.Exception.Message))"
+            continue
+        }
+
+        if ($json -isnot [System.Management.Automation.PSCustomObject]) {
+            Write-Warning "Skipping invalid profile Preferences file: $file (top-level value is not a JSON object)."
+            continue
+        }
+
         $changed = $false
 
         foreach ($patch in $patches) {
