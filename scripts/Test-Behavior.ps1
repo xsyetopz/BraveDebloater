@@ -175,6 +175,33 @@ try {
     $restoreOutput = (& $scriptPath -UndoFromBackup $validBackup *>&1 | Out-String)
     Assert-TextContains -Text $restoreOutput -Expected 'Would remove BraveRewardsDisabled' -Context 'restore dry-run output'
 
+    $mixedProfileRoot = Join-Path $tempRoot 'MixedProfileRoot'
+    $invalidProfileDirectory = Join-Path $mixedProfileRoot 'Default'
+    $emptyProfileDirectory = Join-Path $mixedProfileRoot 'Profile 1'
+    $validProfileDirectory = Join-Path $mixedProfileRoot 'Profile 2'
+    New-Item -ItemType Directory -Path $invalidProfileDirectory -Force | Out-Null
+    New-Item -ItemType Directory -Path $emptyProfileDirectory -Force | Out-Null
+    New-Item -ItemType Directory -Path $validProfileDirectory -Force | Out-Null
+    $invalidPreferences = Join-Path $invalidProfileDirectory 'Preferences'
+    $emptyPreferences = Join-Path $emptyProfileDirectory 'Preferences'
+    $validPreferences = Join-Path $validProfileDirectory 'Preferences'
+    Set-Content -LiteralPath $invalidPreferences -Value '{ this is not valid json' -Encoding UTF8 -NoNewline
+    Set-Content -LiteralPath $emptyPreferences -Value '' -Encoding UTF8 -NoNewline
+    Set-Content -LiteralPath $validPreferences -Value '{}' -Encoding UTF8 -NoNewline
+
+    $invalidJsonOutput = (& $scriptPath -Preset Core -IncludeProfilePreferences -ProfileRoot $mixedProfileRoot *>&1 | Out-String)
+    $skipCount = ([regex]::Matches($invalidJsonOutput, 'Skipping invalid profile Preferences file')).Count
+    if ($skipCount -ne 2) {
+        throw "Expected 2 skipped profile Preferences files, found $skipCount."
+    }
+    Assert-TextContains -Text $invalidJsonOutput -Expected 'Would create brave.new_tab_page.show_branded_background_image' -Context 'valid Preferences dry-run output'
+    Assert-TextContains -Text $invalidJsonOutput -Expected 'Dry-run complete.' -Context 'invalid Preferences dry-run output'
+
+    $invalidJsonContentBefore = Get-Content -LiteralPath $invalidPreferences -Raw
+    if ($invalidJsonContentBefore -ne '{ this is not valid json') {
+        throw 'Dry-run modified an invalid profile Preferences file.'
+    }
+
     Write-Host 'Behavior checks passed.'
 }
 finally {
