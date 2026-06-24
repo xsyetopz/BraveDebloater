@@ -1,3 +1,4 @@
+#!/usr/bin/env pwsh
 #requires -Version 5.1
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
 param(
