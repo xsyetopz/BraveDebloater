@@ -14,6 +14,14 @@ Thanks for helping make BraveDebloater safer and cleaner.
 - Keep restore behavior working whenever a new write path is added.
 - Treat `-List` and `-WhatIf` as read-only paths.
 
+## AI Agent And LLM Contributions
+
+If an AI agent, coding assistant, or autonomous workflow changes this repository, it must follow `AGENTS.md`.
+
+Agent-made changes must stay coherent across code, docs, tests, and configuration. If a change touches policy behavior, platform behavior, restore behavior, user-facing output, or CI, update every affected file in the same pull request.
+
+Do not submit agent output that only patches the visible symptom. Trace the shared path, fix the common cause, and run the checks below.
+
 ## Checks
 
 Before opening a pull request, run:

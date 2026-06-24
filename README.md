@@ -2,6 +2,8 @@
 
 ![Brave](https://img.shields.io/badge/Brave-FB542B?style=flat-square&logo=brave&logoColor=white)
 ![Windows](https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5391FE?style=flat-square&logo=powershell&logoColor=white)
 [![CI](https://img.shields.io/github/actions/workflow/status/osfv/BraveDebloater/ci.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=CI)](https://github.com/osfv/BraveDebloater/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/osfv/BraveDebloater?style=flat-square&label=license)](LICENSE)
@@ -12,73 +14,88 @@
 
 <p>
   <img src="assets/icons/brave.svg" width="18" alt="Brave logo" />
-  <strong>BraveDebloater</strong> is a safety-first Windows PowerShell tool for trimming Brave Browser extras while keeping Brave Shields intact.
+  <strong>BraveDebloater</strong> removes Brave Browser extras with Brave and Chromium enterprise policies.
 </p>
 
 <p>
-  <img src="assets/icons/windows.svg" width="16" alt="Windows logo" /> Windows-first
+  <img src="assets/icons/windows.svg" width="16" alt="Windows logo" /> Windows/macOS/Linux
   &nbsp;·&nbsp;
-  <img src="assets/icons/powershell.svg" width="16" alt="PowerShell logo" /> PowerShell-native
+  <img src="assets/icons/powershell.svg" width="16" alt="PowerShell logo" /> PowerShell runtime
   &nbsp;·&nbsp;
   <img src="assets/icons/opensource.svg" width="16" alt="Open Source Initiative logo" /> Open source
 </p>
 
-It uses official Brave/Chromium enterprise policies where possible, starts in dry-run mode, writes backups before applying changes, and includes an undo path. No updater disabling, no host-file edits, no extension removal, and no Shield allowlisting.
+The script starts in preview mode. Nothing changes until you add `-Apply`.
 
-## What It Debloats
+Before an apply run, BraveDebloater writes a backup unless you use `-NoBackup` for policy-only changes. It does not disable Brave updates, edit hosts files, remove extensions, turn off Brave Shields, or add Shield allowlists.
 
-- Brave Rewards, Wallet, VPN, Leo AI Chat, News, Talk, Playlist, Speedreader, and Wayback prompts
-- Brave telemetry surfaces such as P3A, stats ping, and Web Discovery
-- Chromium metrics, URL-keyed collection, Privacy Sandbox prompts, remote search suggestions, network prediction, and remote spellcheck
-- Extreme preset extras such as background mode, promotions, Browser Labs, new tab cards, shopping list, QR generator, translate prompts, autofill, and the Google search side panel
+PowerShell is the cross-platform runtime. The files it writes are native to each platform: Windows registry policies, macOS defaults or plist payloads, and Linux JSON policy files.
 
-Optional profile preference cleanup can also hide some new tab sponsored/background and toolbar surfaces when Brave stores those preferences in per-profile `Preferences` JSON.
+## What It Can Remove
 
-## Quick Start
+Brave-specific surfaces:
 
-Preview the extreme preset:
+- Rewards, Wallet, VPN, Leo AI Chat, News, Talk, Playlist, Email Aliases, IPFS, Speedreader, and Wayback prompts
+
+Telemetry and suggestions:
+
+- Brave P3A, stats ping, Web Discovery, Chromium metrics, URL-keyed collection, Privacy Sandbox prompts, remote search suggestions, network prediction, and remote spellcheck
+
+Extra UI in the `Extreme` preset:
+
+- Background mode, promotions, Browser Labs, new tab cards, shopping list, QR generator, translate prompts, autofill, and the Google search side panel
+
+Optional profile preference cleanup can also hide some new tab, sponsored background, and toolbar surfaces. That part edits per-profile `Preferences` JSON, so close Brave before applying it.
+
+## Start Here
+
+Preview the default cleanup first:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme
 ```
 
-List the policies and optional profile preference patches without running the dry-run/apply flow:
-
-```powershell
-.\Invoke-BraveDebloat.ps1 -Preset Extreme -List -IncludeProfilePreferences
-```
-
-List the available feature toggles:
-
-```powershell
-.\Invoke-BraveDebloat.ps1 -ListFeatures
-```
-
-Run a read-only health check of Brave policies, backups, profile files, and detected feature status:
-
-```powershell
-.\Invoke-BraveDebloat.ps1 -Doctor
-```
-
-Apply it for the current Windows user:
+Read the output. If it looks right, apply it:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -Apply
 ```
 
-Apply it and enforce a safe Shields baseline:
+After applying, restart Brave. Then open `brave://policy` and check that the policies loaded.
+
+## Common Tasks
+
+See what would be changed, including profile preference patches:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Preset Extreme -List -IncludeProfilePreferences
+```
+
+See the feature names you can include or exclude:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -ListFeatures
+```
+
+Run a read-only health check:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Doctor
+```
+
+Apply the default cleanup and lock a safe Shields baseline:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -LockShields -Apply
 ```
 
-Customize the preset interactively:
+Choose features one by one:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -Customize
 ```
 
-Or make a scripted custom run:
+Use exact feature choices in scripts:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -ExcludeFeature News,LeoAI
@@ -86,47 +103,79 @@ Or make a scripted custom run:
 .\Invoke-BraveDebloat.ps1 -OnlyFeature Rewards,Wallet,VPN
 ```
 
-PowerShell `-WhatIf` is supported as a no-write preview even when `-Apply` is present:
+Use PowerShell `-WhatIf` when you want a no-write preview even with `-Apply` present:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -Apply -WhatIf
 ```
 
-After applying, restart Brave and open `brave://policy` to verify the policies.
+## Platform Support
+
+Windows writes Brave policy values under the current-user or local-machine registry policy key.
+
+macOS current-user mode uses `defaults write com.brave.Browser`. macOS machine-wide mode writes `/Library/Managed Preferences/com.brave.Browser.plist`.
+
+Linux writes JSON policy values to `/etc/brave/policies/managed/BraveDebloater.json`.
+
+Android and iOS/iPadOS do not support local writes from this script. Use `-ExportPolicyPath` to create an MDM payload. Brave documents limited iOS/iPadOS support for Playlist, VPN, News, Talk, Rewards, and AI Chat policies.
+
+Examples:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Platform macOS -Preset Extreme -Apply
+.\Invoke-BraveDebloat.ps1 -Platform Linux -Preset Extreme -Apply
+.\Invoke-BraveDebloat.ps1 -Platform Linux -Preset Extreme -ExportPolicyPath .\brave-policy.json
+.\Invoke-BraveDebloat.ps1 -Platform iOS -OnlyFeature Rewards -ExportPolicyPath .\brave-ios.mobileconfig
+.\Invoke-BraveDebloat.ps1 -Platform Android -OnlyFeature Rewards -ExportPolicyPath .\brave-android-mdm.json
+```
+
+Use `-PolicyPath` when testing, or when your managed Linux/macOS policy file lives somewhere custom.
 
 ## Presets
 
-- `Standard`: Brave-specific bloat and Brave telemetry.
-- `High`: `Standard` plus privacy-preserving policy defaults.
-- `Extreme`: `High` plus more UI and convenience surface cleanup.
-- `Core`, `Privacy`, and `Aggressive`: compatibility aliases for `Standard`, `High`, and `Extreme`.
-- `-LockShields`: optional add-on that enforces default ad blocking, standard fingerprinting protection, HTTPS upgrades, and stricter referrer behavior.
+`Standard` removes Brave-specific bloat and Brave telemetry.
 
-By default, the tool uses `Extreme` and does not lock Shield behavior. It also refuses to apply policies that disable Shields, add Shield-disabled URLs, weaken Safe Browsing, or disable updates.
+`High` includes `Standard` and adds privacy-preserving policy defaults.
+
+`Extreme` includes `High` and removes more UI and convenience surfaces.
+
+`Core`, `Privacy`, and `Aggressive` are aliases for `Standard`, `High`, and `Extreme`.
+
+`-LockShields` is an optional add-on. It enforces default ad blocking, standard fingerprinting protection, HTTPS upgrades, and stricter referrer behavior.
+
+By default, the tool uses `Extreme` and does not lock Shields. It refuses to apply policies that disable Shields, add Shield-disabled URLs, weaken Safe Browsing, or disable updates.
 
 ## Feature Toggles
 
-Use `-Customize` for an interactive yes/no prompt for each cleanup, or use `-IncludeFeature` and `-ExcludeFeature` for repeatable commands. Feature names are shown by `-ListFeatures`; examples include `Rewards`, `Wallet`, `VPN`, `LeoAI`, `News`, `Talk`, `Autofill`, `Translate`, and `GoogleSearchSidePanel`.
+Use `-Customize` for an interactive yes/no prompt for each cleanup.
+
+Use `-IncludeFeature` and `-ExcludeFeature` for repeatable commands.
 
 Use `-OnlyFeature` when you want exactly the named cleanups without starting from a preset.
+
+Feature names are shown by `-ListFeatures`. Examples include `Rewards`, `Wallet`, `VPN`, `LeoAI`, `News`, `Talk`, `EmailAliases`, `IPFS`, `Autofill`, `Translate`, and `GoogleSearchSidePanel`.
 
 When `-IncludeProfilePreferences` is combined with custom feature choices, profile preference patches are filtered to the selected features.
 
 ## Doctor Mode
 
-Use `-Doctor` to inspect the current Brave policy state without writing anything. It reports CurrentUser and LocalMachine policy keys, detected feature status, unknown Brave policies, protected policy names, Brave process state, profile preference files, and available backups.
+Use `-Doctor` when you want to inspect Brave without changing anything.
 
-This is useful after testing other debloat tools because machine-wide policies can make Brave settings appear managed for every Windows user.
+It checks policy locations, detected feature status, unknown Brave policies, protected policy names, Brave process state, profile preference files, and backups.
+
+This helps after testing other debloat tools. Machine-wide policies can make Brave settings appear managed for every Windows user, even when current-user policies look empty.
 
 ## Profile Preferences
 
-Registry policies are the main path because they are supported and visible in `brave://policy`. For cosmetic cleanup that Brave stores per profile, close Brave and run:
+Policies are the main path because Brave shows them in `brave://policy`.
+
+Some cosmetic cleanup lives in each Brave profile instead. Close Brave first, then run:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -IncludeProfilePreferences -Apply
 ```
 
-If Brave is running, profile preference cleanup is skipped to avoid writing files that Brave may overwrite.
+If Brave is running, profile preference cleanup is skipped. This avoids writing files that Brave may overwrite.
 
 ## Restore
 
@@ -144,11 +193,13 @@ Apply a restore:
 .\Invoke-BraveDebloat.ps1 -UndoFromBackup .\backups\BraveDebloater-YYYYMMDD-HHMMSS-fff.json -Apply
 ```
 
-Restore validates backup metadata before writing. Registry restores are limited to Brave policy keys, and profile file restores are limited to `Preferences` files under the selected `-ProfileRoot`.
+Restore validates the backup before it writes. Registry restores are limited to Brave policy keys. Profile file restores are limited to `Preferences` files under the selected `-ProfileRoot`.
 
 ## Machine-Wide Mode
 
-Current-user policy is the default and does not require administrator rights. For machine-wide policy, run PowerShell as administrator:
+Current-user policy is the default and does not require administrator/root rights.
+
+For machine-wide policy, run PowerShell as administrator/root:
 
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Preset Extreme -Scope LocalMachine -Apply
@@ -156,20 +207,28 @@ Current-user policy is the default and does not require administrator rights. Fo
 
 ## Sources
 
-Policy names and values are based on Brave's official Group Policy documentation and Brave policy templates:
+Policy names and values come from Brave's official Group Policy documentation and Brave policy templates:
 
 - https://support.brave.app/hc/en-us/articles/360039248271-Group-Policy
 - https://brave-browser-downloads.s3.brave.com/latest/policy_templates.zip
 
+See `docs/debloatable-validation.md` for the source version, the policy choices, and the validation commands.
+
 ## Project Checks
 
-Run the built-in manifest and syntax checks:
+Run the local checks:
 
 ```powershell
 .\scripts\Test-PolicyManifest.ps1
 .\scripts\Test-Behavior.ps1
 ```
 
+Validate against a downloaded Brave policy template zip:
+
+```powershell
+.\scripts\Test-LatestPolicyTemplates.ps1 -TemplateZipPath .\policy_templates.zip
+```
+
 ## Pull Request Review
 
-Greptile review guidance lives in `greptile.json` and mirrors the same safety-first focus for PowerShell compatibility, policy changes, registry writes, profile JSON writes, and feature-toggle behavior.
+Greptile review guidance lives in `greptile.json`. It covers PowerShell compatibility, policy writes, registry writes, profile JSON writes, and feature-toggle behavior.

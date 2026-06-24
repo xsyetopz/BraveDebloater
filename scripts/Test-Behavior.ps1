@@ -62,7 +62,7 @@ try {
 
     $doctorApplyBackupDirectory = Join-Path $tempRoot 'DoctorApplyBackups'
     $doctorApplyOutput = (& $scriptPath -Doctor -Apply -ProfileRoot $missingProfileRoot -BackupDirectory $doctorApplyBackupDirectory *>&1 | Out-String)
-    Assert-TextContains -Text $doctorApplyOutput -Expected '-Doctor is read-only. -Apply is ignored in Doctor mode.' -Context '-Doctor -Apply output'
+    Assert-TextContains -Text $doctorApplyOutput -Expected '-Doctor is read-only. -Apply was ignored. No policy, backup, or profile files will be changed.' -Context '-Doctor -Apply output'
     Assert-TextContains -Text $doctorApplyOutput -Expected 'Doctor report (read-only)' -Context '-Doctor -Apply output'
     Assert-TextDoesNotContain -Text $doctorApplyOutput -Unexpected 'Backup written' -Context '-Doctor -Apply output'
     Assert-TextDoesNotContain -Text $doctorApplyOutput -Unexpected 'Would set' -Context '-Doctor -Apply output'
@@ -131,7 +131,7 @@ try {
 
     $whatIfBackupDirectory = Join-Path $tempRoot 'WhatIfBackups'
     $whatIfOutput = (& $scriptPath -Preset Core -Apply -WhatIf -BackupDirectory $whatIfBackupDirectory *>&1 | Out-String)
-    Assert-TextContains -Text $whatIfOutput -Expected 'WhatIf mode. No registry, backup, or profile files will be changed.' -Context '-WhatIf output'
+    Assert-TextContains -Text $whatIfOutput -Expected 'WhatIf mode. No policy, backup, or profile files will be changed.' -Context '-WhatIf output'
     Assert-TextDoesNotContain -Text $whatIfOutput -Unexpected 'Backup written' -Context '-WhatIf output'
     Assert-TextDoesNotContain -Text $whatIfOutput -Unexpected 'Done. Restart Brave' -Context '-WhatIf output'
     if (Test-Path -LiteralPath $whatIfBackupDirectory) {
@@ -200,6 +200,80 @@ try {
     $invalidJsonContentBefore = Get-Content -LiteralPath $invalidPreferences -Raw
     if ($invalidJsonContentBefore -ne '{ this is not valid json') {
         throw 'Dry-run modified an invalid profile Preferences file.'
+    }
+
+    $linuxPolicyPath = Join-Path $tempRoot 'BraveDebloater-linux-policy.json'
+    $linuxApplyOutput = (& $scriptPath -Platform Linux -PolicyPath $linuxPolicyPath -OnlyFeature Rewards -Apply -NoBackup *>&1 | Out-String)
+    Assert-TextContains -Text $linuxApplyOutput -Expected 'Platform: Linux' -Context 'Linux policy apply output'
+    Assert-TextContains -Text $linuxApplyOutput -Expected 'Set BraveRewardsDisabled.' -Context 'Linux policy apply output'
+    if (-not (Test-Path -LiteralPath $linuxPolicyPath)) {
+        throw 'Linux policy apply did not create the policy JSON file.'
+    }
+    $linuxPolicyJson = Get-Content -LiteralPath $linuxPolicyPath -Raw | ConvertFrom-Json
+    if ([int]$linuxPolicyJson.BraveRewardsDisabled -ne 1) {
+        throw 'Linux policy apply did not write BraveRewardsDisabled = 1.'
+    }
+
+    $customLinuxBackup = Join-Path $tempRoot 'custom-linux-backup.json'
+    [ordered]@{
+        schemaVersion = 1
+        platform = 'Linux'
+        policyKind = 'JsonFile'
+        registryPath = $linuxPolicyPath
+        policies = @(
+            [ordered]@{
+                name = 'BraveRewardsDisabled'
+                existed = $false
+                value = $null
+                kind = $null
+            }
+        )
+        profileFiles = @()
+    } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $customLinuxBackup -Encoding UTF8
+
+    $customRestoreRejected = $false
+    try {
+        & $scriptPath -UndoFromBackup $customLinuxBackup | Out-Null
+    }
+    catch {
+        $customRestoreRejected = $_.Exception.Message -match 'untrusted registry path'
+    }
+    if (-not $customRestoreRejected) {
+        throw 'Custom Linux backup restore did not require the matching -PolicyPath.'
+    }
+
+    $customRestoreOutput = (& $scriptPath -UndoFromBackup $customLinuxBackup -PolicyPath $linuxPolicyPath *>&1 | Out-String)
+    Assert-TextContains -Text $customRestoreOutput -Expected 'Would remove BraveRewardsDisabled' -Context 'custom Linux restore dry-run output'
+
+    $androidDryRunOutput = (& $scriptPath -Platform Android -OnlyFeature Rewards *>&1 | Out-String)
+    Assert-TextContains -Text $androidDryRunOutput -Expected 'Platform: Android' -Context 'Android dry-run output'
+    Assert-TextContains -Text $androidDryRunOutput -Expected 'MDM profile' -Context 'Android dry-run output'
+    Assert-TextContains -Text $androidDryRunOutput -Expected 'Would set BraveRewardsDisabled' -Context 'Android dry-run output'
+
+    $androidPolicyPath = Join-Path $tempRoot 'brave-android-mdm.json'
+    $androidExportOutput = (& $scriptPath -Platform Android -OnlyFeature Rewards -ExportPolicyPath $androidPolicyPath *>&1 | Out-String)
+    Assert-TextContains -Text $androidExportOutput -Expected 'Exported 1 policy value(s) for Android' -Context 'Android export output'
+    $androidPolicyJson = Get-Content -LiteralPath $androidPolicyPath -Raw | ConvertFrom-Json
+    if ([int]$androidPolicyJson.BraveRewardsDisabled -ne 1) {
+        throw 'Android policy export did not write BraveRewardsDisabled = 1.'
+    }
+
+    $iosPolicyPath = Join-Path $tempRoot 'brave-ios.mobileconfig'
+    $iosExportOutput = (& $scriptPath -Platform iOS -OnlyFeature Rewards -ExportPolicyPath $iosPolicyPath *>&1 | Out-String)
+    Assert-TextContains -Text $iosExportOutput -Expected 'Exported 1 policy value(s) for iOS' -Context 'iOS export output'
+    $iosMobileConfig = Get-Content -LiteralPath $iosPolicyPath -Raw
+    Assert-TextContains -Text $iosMobileConfig -Expected 'com.apple.ManagedClient.preferences' -Context 'iOS mobileconfig'
+    Assert-TextContains -Text $iosMobileConfig -Expected 'BraveRewardsDisabled' -Context 'iOS mobileconfig'
+
+    $iosUnsupportedFailed = $false
+    try {
+        & $scriptPath -Platform iOS -Preset Extreme -ExportPolicyPath (Join-Path $tempRoot 'unsupported.mobileconfig') | Out-Null
+    }
+    catch {
+        $iosUnsupportedFailed = $_.Exception.Message -match 'unsupported selected policies'
+    }
+    if (-not $iosUnsupportedFailed) {
+        throw 'iOS export did not reject unsupported policies.'
     }
 
     Write-Host 'Behavior checks passed.'

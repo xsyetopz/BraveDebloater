@@ -1,10 +1,24 @@
 {
   "schemaVersion": 1,
-  "policyTemplateVersion": "148.1.91.121",
+  "policyTemplateVersion": "150.1.93.96",
   "sources": [
     "https://support.brave.app/hc/en-us/articles/360039248271-Group-Policy",
     "https://brave-browser-downloads.s3.brave.com/latest/policy_templates.zip"
   ],
+  "platformSupport": {
+    "Windows": "official-template",
+    "macOS": "official-template",
+    "Linux": "official-template",
+    "Android": "mdm-no-template",
+    "iOS": [
+      "BravePlaylistEnabled",
+      "BraveVPNDisabled",
+      "BraveNewsDisabled",
+      "BraveTalkDisabled",
+      "BraveRewardsDisabled",
+      "BraveAIChatEnabled"
+    ]
+  },
   "safety": {
     "blockedPolicyNames": [
       "BraveShieldsDisabledForUrls",
@@ -40,6 +54,8 @@
       "BraveNewsDisabled",
       "BraveTalkDisabled",
       "BravePlaylistEnabled",
+      "EmailAliasesEnabled",
+      "IPFSEnabled",
       "BraveSpeedreaderEnabled",
       "BraveWaybackMachineEnabled",
       "BraveP3AEnabled",
@@ -64,6 +80,7 @@
       "@Privacy",
       "BackgroundModeEnabled",
       "PromotionsEnabled",
+      "PromotionalTabsEnabled",
       "BrowserLabsEnabled",
       "MediaRecommendationsEnabled",
       "NTPCardsVisible",
@@ -139,6 +156,22 @@
         "BravePlaylistEnabled"
       ],
       "reason": "Disable Brave Playlist."
+    },
+    {
+      "id": "EmailAliases",
+      "label": "Email aliases",
+      "policies": [
+        "EmailAliasesEnabled"
+      ],
+      "reason": "Disable Brave Email Aliases entry points."
+    },
+    {
+      "id": "IPFS",
+      "label": "IPFS",
+      "policies": [
+        "IPFSEnabled"
+      ],
+      "reason": "Disable IPFS integration."
     },
     {
       "id": "Speedreader",
@@ -259,7 +292,8 @@
       "id": "Promotions",
       "label": "promotional surfaces",
       "policies": [
-        "PromotionsEnabled"
+        "PromotionsEnabled",
+        "PromotionalTabsEnabled"
       ],
       "reason": "Disable promotional surfaces."
     },
@@ -395,6 +429,18 @@
       "category": "Brave feature",
       "reason": "Disable Brave Playlist."
     },
+    "EmailAliasesEnabled": {
+      "type": "DWord",
+      "value": 0,
+      "category": "Brave feature",
+      "reason": "Disable Brave Email Aliases."
+    },
+    "IPFSEnabled": {
+      "type": "DWord",
+      "value": 0,
+      "category": "Brave feature",
+      "reason": "Disable IPFS integration."
+    },
     "BraveSpeedreaderEnabled": {
       "type": "DWord",
       "value": 0,
@@ -502,6 +548,12 @@
       "value": 0,
       "category": "UI",
       "reason": "Disable promotional surfaces."
+    },
+    "PromotionalTabsEnabled": {
+      "type": "DWord",
+      "value": 0,
+      "category": "UI",
+      "reason": "Disable promotional tabs."
     },
     "BrowserLabsEnabled": {
       "type": "DWord",
