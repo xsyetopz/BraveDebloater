@@ -210,8 +210,8 @@ try {
         throw 'Linux policy apply did not create the policy JSON file.'
     }
     $linuxPolicyJson = Get-Content -LiteralPath $linuxPolicyPath -Raw | ConvertFrom-Json
-    if ([int]$linuxPolicyJson.BraveRewardsDisabled -ne 1) {
-        throw 'Linux policy apply did not write BraveRewardsDisabled = 1.'
+    if ($linuxPolicyJson.BraveRewardsDisabled -isnot [bool] -or -not $linuxPolicyJson.BraveRewardsDisabled) {
+        throw 'Linux policy apply did not write BraveRewardsDisabled = true.'
     }
 
     $customLinuxBackup = Join-Path $tempRoot 'custom-linux-backup.json'
@@ -254,8 +254,8 @@ try {
     $androidExportOutput = (& $scriptPath -Platform Android -OnlyFeature Rewards -ExportPolicyPath $androidPolicyPath *>&1 | Out-String)
     Assert-TextContains -Text $androidExportOutput -Expected 'Exported 1 policy value(s) for Android' -Context 'Android export output'
     $androidPolicyJson = Get-Content -LiteralPath $androidPolicyPath -Raw | ConvertFrom-Json
-    if ([int]$androidPolicyJson.BraveRewardsDisabled -ne 1) {
-        throw 'Android policy export did not write BraveRewardsDisabled = 1.'
+    if ($androidPolicyJson.BraveRewardsDisabled -isnot [bool] -or -not $androidPolicyJson.BraveRewardsDisabled) {
+        throw 'Android policy export did not write BraveRewardsDisabled = true.'
     }
 
     $iosPolicyPath = Join-Path $tempRoot 'brave-ios.mobileconfig'
@@ -264,6 +264,7 @@ try {
     $iosMobileConfig = Get-Content -LiteralPath $iosPolicyPath -Raw
     Assert-TextContains -Text $iosMobileConfig -Expected 'com.apple.ManagedClient.preferences' -Context 'iOS mobileconfig'
     Assert-TextContains -Text $iosMobileConfig -Expected 'BraveRewardsDisabled' -Context 'iOS mobileconfig'
+    Assert-TextContains -Text $iosMobileConfig -Expected '<true/>' -Context 'iOS mobileconfig'
 
     $iosUnsupportedFailed = $false
     try {

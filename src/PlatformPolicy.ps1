@@ -202,7 +202,7 @@ function Set-PolicyValue {
         return
     }
 
-    $value = if ($Definition.type -eq 'DWord') { [int]$Definition.value } else { [string]$Definition.value }
+    $value = ConvertTo-ManagedPolicyValue -Definition $Definition
     if ($Target.Kind -eq 'JsonFile') {
         $json = [pscustomobject]@{}
         if (Test-Path -LiteralPath $Target.Path) {
@@ -220,7 +220,7 @@ function Set-PolicyValue {
 
     if ($Target.Kind -eq 'MacOSDefaults' -or $Target.Kind -eq 'MacOSPlist') {
         $domain = if ($Target.Kind -eq 'MacOSDefaults') { $Target.Path } else { $Target.Path -replace '\.plist$', '' }
-        $typeFlag = if ($Definition.type -eq 'DWord') { '-int' } else { '-string' }
+        $typeFlag = if ($value -is [bool]) { '-bool' } elseif ($value -is [int]) { '-int' } else { '-string' }
         if ($Target.Kind -eq 'MacOSPlist') {
             $directory = Split-Path -Parent $Target.Path
             if (-not (Test-Path -LiteralPath $directory)) {
@@ -386,6 +386,20 @@ function Test-PolicyValueMatches {
     return $false
 }
 
+function ConvertTo-ManagedPolicyValue {
+    param([Parameter(Mandatory = $true)]$Definition)
+
+    if ($Definition.type -eq 'DWord') {
+        $number = [int]$Definition.value
+        if ($number -eq 0 -or $number -eq 1) {
+            return [bool]$number
+        }
+        return $number
+    }
+
+    return [string]$Definition.value
+}
+
 function Get-FeaturePolicyStatus {
     param(
         [Parameter(Mandatory = $true)]$Feature,
@@ -433,7 +447,7 @@ function Get-PolicyPayload {
     $payload = [ordered]@{}
     foreach ($policyName in $PolicyNames) {
         $definition = $PolicyDefinitions[$policyName]
-        $payload[$policyName] = if ($definition.type -eq 'DWord') { [int]$definition.value } else { [string]$definition.value }
+        $payload[$policyName] = ConvertTo-ManagedPolicyValue -Definition $definition
     }
     return $payload
 }
