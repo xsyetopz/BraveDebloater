@@ -166,7 +166,11 @@ function Get-PolicyValue {
     if ($Target.Kind -eq 'MacOSDefaults' -or $Target.Kind -eq 'MacOSPlist') {
         $arguments = if ($Target.Kind -eq 'MacOSDefaults') { @('read', $Target.Path, $Name) } else { @('read', ($Target.Path -replace '\.plist$', ''), $Name) }
         $output = & /usr/bin/defaults @arguments 2>$null
-        if ($LASTEXITCODE -eq 0) {
+        $readSucceeded = $LASTEXITCODE -eq 0
+        # `defaults read` exits non-zero when the key is absent (the common case during a scan).
+        # Clear LASTEXITCODE so a missing key does not leak a failure exit code to the script.
+        $global:LASTEXITCODE = 0
+        if ($readSucceeded) {
             $text = $output -join "`n"
             $number = 0
             $value = if ([int]::TryParse($text, [ref]$number)) { $number } else { $text }
@@ -267,6 +271,8 @@ function Remove-PolicyValue {
     if ($Target.Kind -eq 'MacOSDefaults' -or $Target.Kind -eq 'MacOSPlist') {
         $domain = if ($Target.Kind -eq 'MacOSDefaults') { $Target.Path } else { $Target.Path -replace '\.plist$', '' }
         & /usr/bin/defaults delete $domain $Name 2>$null
+        # Deleting an absent key exits non-zero; clear it so the exit code is not leaked.
+        $global:LASTEXITCODE = 0
     }
 }
 
