@@ -125,7 +125,12 @@ function Get-RegistrySnapshot {
                 }
             }
             catch {
-                $entry.existed = $false
+                # The value could not be read (e.g. access denied). We cannot tell
+                # whether it was absent or merely unreadable, so omit it from the
+                # backup. Recording existed=$false here would make a later restore
+                # delete a value that may actually have been present.
+                Write-Warning "Could not read registry value '$policyName' under '$BasePath', so it was excluded from the backup: $($_.Exception.Message)"
+                continue
             }
         }
 
