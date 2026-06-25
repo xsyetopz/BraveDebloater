@@ -147,6 +147,30 @@ try {
         throw '-WhatIf created a backup directory.'
     }
 
+    $channelOutput = (& $scriptPath -Preset Core -Channel Beta -ProfileRoot '' *>&1 | Out-String)
+    Assert-TextContains -Text $channelOutput -Expected 'Channel: Beta' -Context '-Channel Beta output'
+
+    $retentionDirectory = Join-Path $tempRoot 'RetentionBackups'
+    New-Item -ItemType Directory -Path $retentionDirectory -Force | Out-Null
+    $oldBackup = Join-Path $retentionDirectory 'BraveDebloater-20240101-010101-001.json'
+    $newBackup = Join-Path $retentionDirectory 'BraveDebloater-20260101-010101-001.json'
+    Set-Content -LiteralPath $oldBackup -Value '{}' -Encoding UTF8
+    Set-Content -LiteralPath $newBackup -Value '{}' -Encoding UTF8
+    (Get-Item -LiteralPath $oldBackup).LastWriteTime = (Get-Date).AddDays(-60)
+    (Get-Item -LiteralPath $newBackup).LastWriteTime = Get-Date
+
+    $retentionPreview = (& $scriptPath -BackupDirectory $retentionDirectory -PruneBackupsOlderThanDays 30 *>&1 | Out-String)
+    Assert-TextContains -Text $retentionPreview -Expected 'Would remove backup BraveDebloater-20240101-010101-001.json' -Context 'backup retention preview'
+    if (-not (Test-Path -LiteralPath $oldBackup)) {
+        throw 'Backup retention preview deleted a backup.'
+    }
+
+    $retentionApply = (& $scriptPath -BackupDirectory $retentionDirectory -KeepLatestBackups 1 -Apply *>&1 | Out-String)
+    Assert-TextContains -Text $retentionApply -Expected 'Removed backup BraveDebloater-20240101-010101-001.json.' -Context 'backup retention apply'
+    if (Test-Path -LiteralPath $oldBackup) {
+        throw 'Backup retention apply did not remove the old backup.'
+    }
+
     $tamperedBackup = Join-Path $tempRoot 'tampered-backup.json'
     [ordered]@{
         schemaVersion = 1

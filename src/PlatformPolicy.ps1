@@ -27,12 +27,23 @@ function Resolve-PlatformName {
 }
 
 function Get-DefaultProfileRoot {
-    param([string]$PlatformName)
+    param(
+        [string]$PlatformName,
+        [ValidateSet('Stable', 'Beta', 'Nightly')]
+        [string]$Channel = 'Stable'
+    )
+
+    $suffix = switch ($Channel) {
+        'Beta' { '-Beta' }
+        'Nightly' { '-Nightly' }
+        default { '' }
+    }
+    $browserDirectory = "Brave-Browser$suffix"
 
     switch ($PlatformName) {
-        'Windows' { return (Join-Path $env:LOCALAPPDATA 'BraveSoftware\Brave-Browser\User Data') }
-        'macOS' { return (Join-Path $HOME 'Library/Application Support/BraveSoftware/Brave-Browser') }
-        'Linux' { return (Join-Path $HOME '.config/BraveSoftware/Brave-Browser') }
+        'Windows' { return (Join-Path $env:LOCALAPPDATA "BraveSoftware\$browserDirectory\User Data") }
+        'macOS' { return (Join-Path $HOME "Library/Application Support/BraveSoftware/$browserDirectory") }
+        'Linux' { return (Join-Path $HOME ".config/BraveSoftware/$browserDirectory") }
         default { return '' }
     }
 }

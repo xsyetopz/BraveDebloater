@@ -147,6 +147,57 @@ function Get-BackupSummary {
     }
 }
 
+function Get-BackupFiles {
+    param([string]$Directory)
+
+    $fullDirectory = Get-FullFileSystemPath -Path $Directory
+    if (-not (Test-Path -LiteralPath $fullDirectory)) {
+        return @()
+    }
+
+    return @(Get-ChildItem -LiteralPath $fullDirectory -Filter 'BraveDebloater-*.json' | Where-Object { -not $_.PSIsContainer } | Sort-Object LastWriteTime -Descending)
+}
+
+function Invoke-BackupRetention {
+    param(
+        [string]$Directory,
+        [int]$OlderThanDays = -1,
+        [int]$KeepLatest = -1,
+        [switch]$DoApply
+    )
+
+    $files = @(Get-BackupFiles -Directory $Directory)
+    Write-Step "Backups: $($files.Count) found in $(Get-FullFileSystemPath -Path $Directory)"
+    foreach ($file in $files) {
+        Write-Step ("Backup: {0} ({1:yyyy-MM-dd HH:mm:ss})" -f $file.Name, $file.LastWriteTime)
+    }
+
+    $remove = @()
+    if ($OlderThanDays -ge 0) {
+        $cutoff = (Get-Date).AddDays(-$OlderThanDays)
+        $remove += @($files | Where-Object { $_.LastWriteTime -lt $cutoff })
+    }
+    if ($KeepLatest -ge 0 -and $files.Count -gt $KeepLatest) {
+        $remove += @($files | Select-Object -Skip $KeepLatest)
+    }
+    $remove = @($remove | Sort-Object FullName -Unique)
+
+    if ($remove.Count -eq 0) {
+        Write-Step 'Backup cleanup: nothing to remove.'
+        return
+    }
+
+    foreach ($file in $remove) {
+        if ($DoApply) {
+            Remove-Item -LiteralPath $file.FullName -Force
+            Write-Step "Removed backup $($file.Name)."
+        }
+        else {
+            Write-DryRun "Would remove backup $($file.Name). Add -Apply to delete it."
+        }
+    }
+}
+
 function New-BackupPath {
     param([string]$Directory)
 

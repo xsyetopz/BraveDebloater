@@ -47,6 +47,22 @@ Extra UI in the `Extreme` preset:
 
 Optional profile preference cleanup can also hide some new tab, sponsored background, and toolbar surfaces. That part edits per-profile `Preferences` JSON, so close Brave before applying it.
 
+## Install
+
+Download the latest release from the repository's Releases page, then extract the zip to a folder you control, such as `Downloads\BraveDebloater`.
+
+Open PowerShell in that folder and run the default dry-run:
+
+```powershell
+.\Invoke-BraveDebloat.ps1
+```
+
+Review the output before applying changes. To verify a release archive first, download `SHA256SUMS.txt` from the same release and compare it with:
+
+```powershell
+Get-FileHash .\BraveDebloater-vX.Y.Z.zip -Algorithm SHA256
+```
+
 ## Start Here
 
 Preview the default cleanup first:
@@ -82,6 +98,16 @@ Run a read-only health check:
 ```powershell
 .\Invoke-BraveDebloat.ps1 -Doctor
 ```
+
+List backups or preview retention cleanup:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -ListBackups
+.\Invoke-BraveDebloat.ps1 -PruneBackupsOlderThanDays 30
+.\Invoke-BraveDebloat.ps1 -KeepLatestBackups 10
+```
+
+Add `-Apply` only after the preview lists the backups you expect to delete.
 
 Apply the default cleanup and lock a safe Shields baseline:
 
@@ -130,6 +156,17 @@ Examples:
 ```
 
 Use `-PolicyPath` when testing, or when your managed Linux/macOS policy file lives somewhere custom.
+
+## Brave Channels
+
+Profile preference cleanup targets Brave Stable by default. Use `-Channel` when you want the default profile path for Beta or Nightly:
+
+```powershell
+.\Invoke-BraveDebloat.ps1 -Channel Beta -IncludeProfilePreferences
+.\Invoke-BraveDebloat.ps1 -Channel Nightly -IncludeProfilePreferences
+```
+
+Stable policy behavior is unchanged. `-ProfileRoot` still overrides the detected profile path.
 
 ## Presets
 
@@ -213,6 +250,18 @@ Policy names and values come from Brave's official Group Policy documentation an
 - https://brave-browser-downloads.s3.brave.com/latest/policy_templates.zip
 
 See `docs/debloatable-validation.md` for the source version, the policy choices, and the validation commands.
+
+See `ROADMAP.md` for planned safety, testing, release trust, user experience, and maintainability work.
+
+## Release Checksums
+
+Generate SHA256 checksums for release artifacts before publishing:
+
+```powershell
+.\scripts\New-ReleaseChecksums.ps1 -Path .\BraveDebloater-vX.Y.Z.zip -OutputPath .\SHA256SUMS.txt
+```
+
+Upload `SHA256SUMS.txt` beside the release archive.
 
 ## Project Checks
 
