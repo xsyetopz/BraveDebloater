@@ -55,7 +55,7 @@ function Assert-BackupPolicyList {
             }
 
             $value = Get-RequiredPropertyValue -Object $policy -Name 'value' -Context "Backup policy '$name'"
-            if ($kind -eq 'DWord' -and $value -isnot [int] -and $value -isnot [long]) {
+            if ($kind -eq 'DWord' -and $value -isnot [int] -and $value -isnot [long] -and $value -isnot [bool]) {
                 throw "Backup policy '$name' is DWord but has non-integer value '$value'."
             }
             if ($kind -eq 'String' -and $value -isnot [string]) {

@@ -1,7 +1,7 @@
 #requires -Version 5.1
 
 function Get-Manifest {
-    $manifestPath = Join-Path $ProjectRoot 'config\policies.json'
+    $manifestPath = Join-Path (Join-Path $ProjectRoot 'config') 'policies.json'
     if (-not (Test-Path -LiteralPath $manifestPath)) {
         throw "Cannot find policy manifest at $manifestPath."
     }

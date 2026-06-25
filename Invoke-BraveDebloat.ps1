@@ -179,8 +179,11 @@ if ($policyTarget.Kind -eq 'MobileMDM' -and $applyChanges) {
     throw "$platformName policies require MDM deployment. This script can list or export the selected policies, but it cannot apply them on-device."
 }
 
+# Enforce the iOS/iPadOS MDM allowlist for every run (dry-run, apply, and export) so the
+# preview never implies on-device support for policies Brave's mobile MDM cannot accept.
+Assert-MobilePolicySupport -PlatformName $platformName -PolicyNames $policyNames.ToArray() -Manifest $manifest
+
 if (-not [string]::IsNullOrWhiteSpace($ExportPolicyPath)) {
-    Assert-MobilePolicySupport -PlatformName $platformName -PolicyNames $policyNames.ToArray() -Manifest $manifest
     $payload = Get-PolicyPayload -PolicyNames $policyNames.ToArray() -PolicyDefinitions $policyDefinitions
     Export-PolicyPayload -Target $policyTarget -Payload $payload -Path $ExportPolicyPath
     Write-Step "Exported $($policyNames.Count) policy value(s) for $platformName to $ExportPolicyPath. Apply that file with your device or policy manager."

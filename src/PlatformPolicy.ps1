@@ -48,9 +48,12 @@ function Get-RegistryPolicyPath {
 }
 
 function Get-RegistryBasePath {
-    param([string]$ScopeName)
+    param(
+        [string]$ScopeName,
+        [switch]$ReadOnly
+    )
 
-    if ($ScopeName -eq 'LocalMachine') {
+    if ($ScopeName -eq 'LocalMachine' -and -not $ReadOnly) {
         if (-not (Test-IsAdministrator)) {
             throw 'LocalMachine scope needs an elevated PowerShell session. Use -Scope CurrentUser, or reopen PowerShell as administrator/root and run the command again.'
         }
@@ -63,12 +66,13 @@ function Get-PolicyTarget {
     param(
         [string]$PlatformName,
         [string]$ScopeName,
-        [string]$OverridePath
+        [string]$OverridePath,
+        [switch]$ReadOnly
     )
 
     switch ($PlatformName) {
         'Windows' {
-            return [pscustomobject]@{ Platform = $PlatformName; Kind = 'Registry'; Path = (Get-RegistryBasePath -ScopeName $ScopeName) }
+            return [pscustomobject]@{ Platform = $PlatformName; Kind = 'Registry'; Path = (Get-RegistryBasePath -ScopeName $ScopeName -ReadOnly:$ReadOnly) }
         }
         'Linux' {
             $path = if ([string]::IsNullOrWhiteSpace($OverridePath)) { '/etc/brave/policies/managed/BraveDebloater.json' } else { $OverridePath }
@@ -77,6 +81,9 @@ function Get-PolicyTarget {
         'macOS' {
             if ($ScopeName -eq 'LocalMachine') {
                 $path = if ([string]::IsNullOrWhiteSpace($OverridePath)) { '/Library/Managed Preferences/com.brave.Browser.plist' } else { $OverridePath }
+                if (-not $ReadOnly -and [string]::IsNullOrWhiteSpace($OverridePath) -and -not (Test-IsAdministrator)) {
+                    throw "macOS LocalMachine scope writes to '$path' and needs root. Use -Scope CurrentUser, or rerun the command with sudo."
+                }
                 return [pscustomobject]@{ Platform = $PlatformName; Kind = 'MacOSPlist'; Path = $path }
             }
             return [pscustomobject]@{ Platform = $PlatformName; Kind = 'MacOSDefaults'; Path = 'com.brave.Browser' }
@@ -557,7 +564,8 @@ function Export-PolicyPayload {
     }
 
     $mobileConfig = $Target.Platform -eq 'iOS' -or $Path.EndsWith('.mobileconfig', [StringComparison]::OrdinalIgnoreCase)
-    ConvertTo-PlistDocument -Payload $Payload -MobileConfig:$mobileConfig | Set-Content -LiteralPath $Path -Encoding UTF8
+    $document = ConvertTo-PlistDocument -Payload $Payload -MobileConfig:$mobileConfig
+    Set-TextFileContent -Path $Path -Content $document
 }
 
 function Set-BravePolicy {

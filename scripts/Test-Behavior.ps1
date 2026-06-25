@@ -52,8 +52,17 @@ try {
 
     $doctorOutput = (& $scriptPath -Doctor -ProfileRoot $missingProfileRoot -BackupDirectory $doctorBackupDirectory *>&1 | Out-String)
     Assert-TextContains -Text $doctorOutput -Expected 'Doctor report (read-only)' -Context '-Doctor output'
-    Assert-TextContains -Text $doctorOutput -Expected 'CurrentUser policies' -Context '-Doctor output'
     Assert-TextContains -Text $doctorOutput -Expected 'LocalMachine policies' -Context '-Doctor output'
+    # Linux exposes a single machine-wide managed policy file, so both scopes resolve to the
+    # same path and the report lists it once. Platforms with a distinct user scope still show both.
+    $isLinuxPlatform = $false
+    $isLinuxVariable = Get-Variable -Name IsLinux -Scope Global -ErrorAction SilentlyContinue
+    if ($isLinuxVariable -and $isLinuxVariable.Value) {
+        $isLinuxPlatform = $true
+    }
+    if (-not $isLinuxPlatform) {
+        Assert-TextContains -Text $doctorOutput -Expected 'CurrentUser policies' -Context '-Doctor output'
+    }
     Assert-TextContains -Text $doctorOutput -Expected 'Feature status' -Context '-Doctor output'
     Assert-TextContains -Text $doctorOutput -Expected 'Backups: 1 found' -Context '-Doctor output'
     Assert-TextContains -Text $doctorOutput -Expected 'Profile root: missing' -Context '-Doctor output'
@@ -276,6 +285,20 @@ try {
     if (-not $iosUnsupportedFailed) {
         throw 'iOS export did not reject unsupported policies.'
     }
+
+    $iosDryRunRejected = $false
+    try {
+        & $scriptPath -Platform iOS -Preset Extreme | Out-Null
+    }
+    catch {
+        $iosDryRunRejected = $_.Exception.Message -match 'unsupported selected policies'
+    }
+    if (-not $iosDryRunRejected) {
+        throw 'iOS dry-run did not reject unsupported policies.'
+    }
+
+    $iosSupportedDryRun = (& $scriptPath -Platform iOS -OnlyFeature Rewards *>&1 | Out-String)
+    Assert-TextContains -Text $iosSupportedDryRun -Expected 'Would set BraveRewardsDisabled' -Context 'iOS supported dry-run output'
 
     Write-Host 'Behavior checks passed.'
 }

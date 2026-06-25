@@ -68,11 +68,16 @@ function Show-DoctorReport {
     Write-Step 'Use this report to see what Brave already has, then decide whether to run a preview or apply command.'
 
     $knownPolicyNames = @($PolicyDefinitions.Keys)
-    $currentUserTarget = Get-PolicyTarget -PlatformName $PlatformName -ScopeName 'CurrentUser' -OverridePath ''
-    $localMachineTarget = Get-PolicyTarget -PlatformName $PlatformName -ScopeName 'LocalMachine' -OverridePath $PolicyPath
+    $currentUserTarget = Get-PolicyTarget -PlatformName $PlatformName -ScopeName 'CurrentUser' -OverridePath '' -ReadOnly
+    $localMachineTarget = Get-PolicyTarget -PlatformName $PlatformName -ScopeName 'LocalMachine' -OverridePath $PolicyPath -ReadOnly
     $currentUserReport = Get-PolicyReport -Target $currentUserTarget -ScopeName 'CurrentUser' -PolicyNames $knownPolicyNames
     $localMachineReport = Get-PolicyReport -Target $localMachineTarget -ScopeName 'LocalMachine' -PolicyNames $knownPolicyNames
     $reports = @($currentUserReport, $localMachineReport)
+    if ($currentUserTarget.Kind -ne 'Registry' -and $currentUserTarget.Path -eq $localMachineTarget.Path) {
+        # Platforms like Linux expose a single machine-wide managed policy file, so both
+        # scopes resolve to the same path. List it once to avoid double-counting entries.
+        $reports = @($localMachineReport)
+    }
     $unreadableScopes = New-Object System.Collections.Generic.List[string]
 
     foreach ($report in $reports) {

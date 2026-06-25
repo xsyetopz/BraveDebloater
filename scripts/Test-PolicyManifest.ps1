@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$manifestPath = Join-Path $root 'config\policies.json'
+$manifestPath = Join-Path (Join-Path $root 'config') 'policies.json'
 $scriptPath = Join-Path $root 'Invoke-BraveDebloat.ps1'
 
 function Get-ObjectMap {
