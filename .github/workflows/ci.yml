@@ -45,7 +45,14 @@ jobs:
 
       - name: Run PSScriptAnalyzer
         shell: pwsh
-        run: Invoke-ScriptAnalyzer -Path ./Invoke-BraveDebloat.ps1,./scripts,./src -Recurse -Severity Error
+        run: |
+          $results = foreach ($path in @('./Invoke-BraveDebloat.ps1', './scripts', './src')) {
+            Invoke-ScriptAnalyzer -Path $path -Recurse -Severity Error
+          }
+          if ($results) {
+            $results | Format-Table -AutoSize | Out-String | Write-Error
+            exit 1
+          }
 
       - name: Dry-run extreme preset
         shell: pwsh
