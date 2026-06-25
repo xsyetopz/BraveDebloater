@@ -278,6 +278,12 @@ Validate against a downloaded Brave policy template zip:
 .\scripts\Test-LatestPolicyTemplates.ps1 -TemplateZipPath .\policy_templates.zip
 ```
 
+Update the recorded template version after downloading a newer official zip:
+
+```powershell
+.\scripts\Update-PolicyTemplateVersion.ps1 -TemplateZipPath .\policy_templates.zip
+```
+
 ## Pull Request Review
 
 Greptile review guidance lives in `greptile.json`. It covers PowerShell compatibility, policy writes, registry writes, profile JSON writes, and feature-toggle behavior.

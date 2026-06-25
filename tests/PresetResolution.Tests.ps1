@@ -1,11 +1,11 @@
 #requires -Version 5.1
 
-$root = Split-Path -Parent $PSScriptRoot
-. (Join-Path $root 'src/Common.ps1')
-. (Join-Path $root 'src/Manifest.ps1')
-
 Describe 'Preset resolution' {
     BeforeAll {
+        $root = Split-Path -Parent $PSScriptRoot
+        . (Join-Path $root 'src/Common.ps1')
+        . (Join-Path $root 'src/Manifest.ps1')
+
         $manifest = Get-Manifest
         $presets = Get-ManifestMap -Object $manifest.presets
     }
