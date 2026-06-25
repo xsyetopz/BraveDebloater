@@ -6,9 +6,20 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   validate:
-    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -24,6 +35,28 @@ jobs:
       - name: Dry-run extreme preset
         shell: pwsh
         run: ./Invoke-BraveDebloat.ps1 -Preset Extreme -LockShields
+
+  source-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download Brave policy templates
+        shell: pwsh
+        run: Invoke-WebRequest -Uri 'https://brave-browser-downloads.s3.brave.com/latest/policy_templates.zip' -OutFile policy_templates.zip
+
+      - name: Validate manifest against official Brave templates
+        shell: pwsh
+        run: ./scripts/Test-LatestPolicyTemplates.ps1 -TemplateZipPath ./policy_templates.zip
+
+  windows-powershell:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
 
       - name: Validate Windows PowerShell 5.1 compatibility
         shell: powershell

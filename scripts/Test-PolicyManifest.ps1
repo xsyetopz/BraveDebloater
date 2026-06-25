@@ -6,7 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$manifestPath = Join-Path $root 'config\policies.json'
+$manifestPath = Join-Path (Join-Path $root 'config') 'policies.json'
 $scriptPath = Join-Path $root 'Invoke-BraveDebloat.ps1'
 
 function Get-ObjectMap {
@@ -73,6 +73,22 @@ $features = @($manifest.features)
 $featureIds = New-Object System.Collections.Generic.List[string]
 $blockedNames = @($manifest.safety.blockedPolicyNames)
 $blockedPatterns = @($manifest.safety.blockedNamePatterns)
+$platformSupport = Get-ObjectMap -Object $manifest.platformSupport
+
+foreach ($platformName in @('Windows', 'macOS', 'Linux', 'Android', 'iOS')) {
+    if (-not $platformSupport.ContainsKey($platformName)) {
+        throw "Manifest platformSupport is missing '$platformName'."
+    }
+}
+
+foreach ($platformName in @('Windows', 'macOS', 'Linux')) {
+    if ([string]$platformSupport[$platformName] -ne 'official-template') {
+        throw "Manifest platformSupport '$platformName' must be 'official-template'."
+    }
+}
+if ([string]$platformSupport['Android'] -ne 'mdm-no-template') {
+    throw "Manifest platformSupport 'Android' must be 'mdm-no-template'."
+}
 
 foreach ($presetName in $presets.Keys) {
     foreach ($policyName in Resolve-Preset -Name $presetName -Presets $presets) {
@@ -106,6 +122,12 @@ foreach ($policyName in $policies.Keys) {
     }
     if ($policy.type -eq 'DWord' -and ([long]$policy.value -lt 0 -or [long]$policy.value -gt [uint32]::MaxValue)) {
         throw "Policy '$policyName' has DWord value outside the registry range: $($policy.value)."
+    }
+}
+
+foreach ($policyName in @($platformSupport['iOS'])) {
+    if (-not $policies.ContainsKey([string]$policyName)) {
+        throw "Manifest platformSupport iOS references undefined policy '$policyName'."
     }
 }
 
