@@ -12,6 +12,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path (Join-Path $root 'config') 'policies.json'
 $validationDocPath = Join-Path (Join-Path $root 'docs') 'debloatable-validation.md'
 
+. (Join-Path $PSScriptRoot 'PolicyTemplateVersion.ps1')
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Read-ZipEntryText {
@@ -44,12 +46,7 @@ function Get-TemplateVersion {
     param([Parameter(Mandatory = $true)]$Zip)
 
     $versionText = Read-ZipEntryText -Zip $Zip -EntryName 'VERSION'
-    $parts = (($versionText -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^(MAJOR|MINOR|BUILD|PATCH)=' }) -replace '^[^=]+='
-    if ($parts.Count -ne 4) {
-        throw 'Template VERSION file did not contain MAJOR, MINOR, BUILD, and PATCH.'
-    }
-
-    return ($parts -join '.')
+    return Get-PolicyTemplateVersionFromText -VersionText $versionText
 }
 
 if (-not (Test-Path -LiteralPath $TemplateZipPath)) {

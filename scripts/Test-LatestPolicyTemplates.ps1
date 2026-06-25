@@ -11,6 +11,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path (Join-Path $root 'config') 'policies.json'
 
+. (Join-Path $PSScriptRoot 'PolicyTemplateVersion.ps1')
+
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Read-ZipEntryText {
@@ -47,8 +49,7 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $TemplateZipPath))
 try {
     $versionText = Read-ZipEntryText -Zip $zip -EntryName 'VERSION'
-    $templateVersion = (($versionText -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^(MAJOR|MINOR|BUILD|PATCH)=' }) -replace '^[^=]+='
-    $templateVersion = $templateVersion -join '.'
+    $templateVersion = Get-PolicyTemplateVersionFromText -VersionText $versionText
     if ($templateVersion -ne [string]$manifest.policyTemplateVersion) {
         throw "Manifest policyTemplateVersion '$($manifest.policyTemplateVersion)' does not match template '$templateVersion'."
     }

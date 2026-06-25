@@ -55,6 +55,37 @@ function Resolve-Preset {
     return $items.ToArray()
 }
 
+function Test-PolicyTemplateVersionUpdater {
+    $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('BraveDebloaterTemplateVersion-{0}' -f [guid]::NewGuid().ToString('N'))
+    try {
+        New-Item -ItemType Directory -Path (Join-Path $tempRoot 'scripts') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $tempRoot 'config') -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $tempRoot 'docs') -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $root 'scripts/Update-PolicyTemplateVersion.ps1') -Destination (Join-Path $tempRoot 'scripts/Update-PolicyTemplateVersion.ps1')
+        Copy-Item -LiteralPath (Join-Path $root 'scripts/PolicyTemplateVersion.ps1') -Destination (Join-Path $tempRoot 'scripts/PolicyTemplateVersion.ps1')
+        Set-Content -LiteralPath (Join-Path $tempRoot 'config/policies.json') -Value '{"policyTemplateVersion": "0.0.0.0"}' -Encoding UTF8
+        Set-Content -LiteralPath (Join-Path $tempRoot 'docs/debloatable-validation.md') -Value 'Template version: `0.0.0.0`' -Encoding UTF8
+
+        $zipRoot = Join-Path $tempRoot 'zip'
+        New-Item -ItemType Directory -Path $zipRoot -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $zipRoot 'VERSION') -Value "PATCH=4`nBUILD=3`nMAJOR=1`nMINOR=2" -Encoding UTF8
+        $zipPath = Join-Path $tempRoot 'template.zip'
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($zipRoot, $zipPath)
+
+        & (Join-Path $tempRoot 'scripts/Update-PolicyTemplateVersion.ps1') -TemplateZipPath $zipPath *> $null
+        $updated = Get-Content -LiteralPath (Join-Path $tempRoot 'config/policies.json') -Raw | ConvertFrom-Json
+        if ([string]$updated.policyTemplateVersion -ne '1.2.3.4') {
+            throw 'Update-PolicyTemplateVersion.ps1 did not assemble shuffled VERSION keys by name.'
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $tempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        }
+    }
+}
+
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     throw "Missing manifest: $manifestPath"
 }
@@ -186,5 +217,7 @@ if ($parseErrors.Count -gt 0) {
     $messages = $parseErrors | ForEach-Object { $_.Message }
     throw "PowerShell parse errors in Invoke-BraveDebloat.ps1: $($messages -join '; ')"
 }
+
+Test-PolicyTemplateVersionUpdater
 
 Write-Host 'Policy manifest and PowerShell syntax checks passed.'

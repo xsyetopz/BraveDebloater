@@ -159,6 +159,10 @@ try {
     (Get-Item -LiteralPath $oldBackup).LastWriteTime = (Get-Date).AddDays(-60)
     (Get-Item -LiteralPath $newBackup).LastWriteTime = Get-Date
 
+    $listBackupsOutput = (& $scriptPath -BackupDirectory $retentionDirectory -ListBackups *>&1 | Out-String)
+    Assert-TextContains -Text $listBackupsOutput -Expected 'Backups: 2 found' -Context '-ListBackups output'
+    Assert-TextDoesNotContain -Text $listBackupsOutput -Unexpected 'Backup cleanup: nothing to remove.' -Context '-ListBackups output'
+
     $retentionPreview = (& $scriptPath -BackupDirectory $retentionDirectory -PruneBackupsOlderThanDays 30 *>&1 | Out-String)
     Assert-TextContains -Text $retentionPreview -Expected 'Would remove backup BraveDebloater-20240101-010101-001.json' -Context 'backup retention preview'
     if (-not (Test-Path -LiteralPath $oldBackup)) {

@@ -172,6 +172,7 @@ function Invoke-BackupRetention {
         Write-Step ("Backup: {0} ({1:yyyy-MM-dd HH:mm:ss})" -f $file.Name, $file.LastWriteTime)
     }
 
+    $pruneRequested = $OlderThanDays -ge 0 -or $KeepLatest -ge 0
     $remove = @()
     if ($OlderThanDays -ge 0) {
         $cutoff = (Get-Date).AddDays(-$OlderThanDays)
@@ -183,14 +184,21 @@ function Invoke-BackupRetention {
     $remove = @($remove | Sort-Object FullName -Unique)
 
     if ($remove.Count -eq 0) {
-        Write-Step 'Backup cleanup: nothing to remove.'
+        if ($pruneRequested) {
+            Write-Step 'Backup cleanup: nothing to remove.'
+        }
         return
     }
 
     foreach ($file in $remove) {
         if ($DoApply) {
-            Remove-Item -LiteralPath $file.FullName -Force
-            Write-Step "Removed backup $($file.Name)."
+            try {
+                Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
+                Write-Step "Removed backup $($file.Name)."
+            }
+            catch {
+                Write-Warning ("Failed to remove backup {0}: {1}" -f $file.Name, $_.Exception.Message)
+            }
         }
         else {
             Write-DryRun "Would remove backup $($file.Name). Add -Apply to delete it."
