@@ -94,52 +94,6 @@ function Get-PolicyTarget {
     }
 }
 
-function Get-RegistrySnapshot {
-    param(
-        [string]$BasePath,
-        [string[]]$PolicyNames
-    )
-
-    $snapshot = New-Object System.Collections.Generic.List[object]
-    $keyExists = Test-Path -LiteralPath $BasePath
-    $key = $null
-    if ($keyExists) {
-        $key = Get-Item -LiteralPath $BasePath
-    }
-
-    foreach ($policyName in $PolicyNames) {
-        $entry = [ordered]@{
-            name = $policyName
-            existed = $false
-            value = $null
-            kind = $null
-        }
-
-        if ($keyExists) {
-            try {
-                $value = $key.GetValue($policyName, $null)
-                if ($null -ne $value) {
-                    $entry.existed = $true
-                    $entry.value = $value
-                    $entry.kind = $key.GetValueKind($policyName).ToString()
-                }
-            }
-            catch {
-                # The value could not be read (e.g. access denied). We cannot tell
-                # whether it was absent or merely unreadable, so omit it from the
-                # backup. Recording existed=$false here would make a later restore
-                # delete a value that may actually have been present.
-                Write-Warning "Could not read registry value '$policyName' under '$BasePath', so it was excluded from the backup: $($_.Exception.Message)"
-                continue
-            }
-        }
-
-        [void]$snapshot.Add([pscustomobject]$entry)
-    }
-
-    return $snapshot.ToArray()
-}
-
 function Get-PolicyValue {
     param(
         [Parameter(Mandatory = $true)]$Target,
@@ -148,13 +102,22 @@ function Get-PolicyValue {
 
     if ($Target.Kind -eq 'Registry') {
         if (Test-Path -LiteralPath $Target.Path) {
-            $key = Get-Item -LiteralPath $Target.Path
-            $value = $key.GetValue($Name, $null)
-            if ($null -ne $value) {
-                return [pscustomobject]@{ Exists = $true; Value = $value; Kind = $key.GetValueKind($Name).ToString() }
+            try {
+                $key = Get-Item -LiteralPath $Target.Path
+                $value = $key.GetValue($Name, $null)
+                if ($null -ne $value) {
+                    return [pscustomobject]@{ Exists = $true; Value = $value; Kind = $key.GetValueKind($Name).ToString(); ReadError = $false }
+                }
+            }
+            catch {
+                # The value could not be read (e.g. access denied). We cannot tell whether it was
+                # absent or merely unreadable, so flag it as a read error. The snapshot records this so
+                # a later restore skips the value instead of deleting one that may actually be present.
+                Write-Warning "Could not read registry value '$Name' under '$($Target.Path)', so it was excluded from the backup: $($_.Exception.Message)"
+                return [pscustomobject]@{ Exists = $false; Value = $null; Kind = $null; ReadError = $true }
             }
         }
-        return [pscustomobject]@{ Exists = $false; Value = $null; Kind = $null }
+        return [pscustomobject]@{ Exists = $false; Value = $null; Kind = $null; ReadError = $false }
     }
 
     if ($Target.Kind -eq 'JsonFile') {
@@ -201,6 +164,7 @@ function Get-PolicySnapshot {
                 existed = [bool]$value.Exists
                 value = $value.Value
                 kind = $value.Kind
+                readError = [bool]$value.ReadError
             })
     }
     return $snapshot.ToArray()

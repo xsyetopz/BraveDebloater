@@ -233,6 +233,11 @@ function Restore-RegistryBackup {
     foreach ($policy in @($backup.policies)) {
         $name = [string]$policy.name
         $existed = [bool]$policy.existed
+        $readError = if ($policy.PSObject.Properties['readError']) { [bool]$policy.readError } else { $false }
+        if ($readError) {
+            Write-Warning "Skipping '$name' because its original value could not be read when the backup was created; leaving the current value untouched."
+            continue
+        }
         if (-not $DoApply) {
             if ($existed) {
                 Write-DryRun "Would restore $name to '$($policy.value)' ($($policy.kind))."
