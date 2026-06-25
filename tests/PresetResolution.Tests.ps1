@@ -6,7 +6,7 @@ Describe 'Preset resolution' {
         . (Join-Path $root 'src/Common.ps1')
         . (Join-Path $root 'src/Manifest.ps1')
 
-        $manifest = Get-Manifest
+        $manifest = Get-Content -LiteralPath (Join-Path (Join-Path $root 'config') 'policies.json') -Raw | ConvertFrom-Json
         $presets = Get-ManifestMap -Object $manifest.presets
     }
 
