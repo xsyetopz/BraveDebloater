@@ -32,6 +32,28 @@ jobs:
         shell: pwsh
         run: ./scripts/Test-Behavior.ps1
 
+      - name: Install PowerShell test tools
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module Pester -RequiredVersion 5.7.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          Install-Module PSScriptAnalyzer -RequiredVersion 1.24.0 -Scope CurrentUser -Force
+
+      - name: Run Pester tests
+        shell: pwsh
+        run: Invoke-Pester -Path ./tests -CI
+
+      - name: Run PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          $results = foreach ($path in @('./Invoke-BraveDebloat.ps1', './scripts', './src')) {
+            Invoke-ScriptAnalyzer -Path $path -Recurse -Severity Error
+          }
+          if ($results) {
+            $results | Format-Table -AutoSize | Out-String | Write-Error
+            exit 1
+          }
+
       - name: Dry-run extreme preset
         shell: pwsh
         run: ./Invoke-BraveDebloat.ps1 -Preset Extreme -LockShields

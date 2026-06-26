@@ -8,6 +8,9 @@ param(
     [ValidateSet('Auto', 'Windows', 'macOS', 'Linux', 'Android', 'iOS')]
     [string]$Platform = 'Auto',
 
+    [ValidateSet('Stable', 'Beta', 'Nightly')]
+    [string]$Channel = 'Stable',
+
     [ValidateSet('CurrentUser', 'LocalMachine')]
     [string]$Scope = 'CurrentUser',
 
@@ -36,6 +39,14 @@ param(
     [string]$BackupDirectory,
 
     [string]$UndoFromBackup,
+
+    [switch]$ListBackups,
+
+    [ValidateRange(-1, 36500)]
+    [int]$PruneBackupsOlderThanDays = -1,
+
+    [ValidateRange(-1, 100000)]
+    [int]$KeepLatestBackups = -1,
 
     [switch]$List,
 
@@ -66,10 +77,15 @@ foreach ($moduleName in @('Common.ps1', 'Manifest.ps1', 'PlatformPolicy.ps1', 'B
 $manifest = Get-Manifest
 $platformName = Resolve-PlatformName -Name $Platform
 if ([string]::IsNullOrWhiteSpace($ProfileRoot)) {
-    $ProfileRoot = Get-DefaultProfileRoot -PlatformName $platformName
+    $ProfileRoot = Get-DefaultProfileRoot -PlatformName $platformName -Channel $Channel
 }
 $applyChanges = $Apply -and -not $WhatIfPreference
 $isWhatIf = $Apply -and $WhatIfPreference
+
+if ($ListBackups -or $PruneBackupsOlderThanDays -ge 0 -or $KeepLatestBackups -ge 0) {
+    Invoke-BackupRetention -Directory $BackupDirectory -OlderThanDays $PruneBackupsOlderThanDays -KeepLatest $KeepLatestBackups -DoApply:$applyChanges
+    return
+}
 
 if ($UndoFromBackup) {
     Restore-RegistryBackup -BackupPath $UndoFromBackup -Manifest $manifest -ProfileRoot $ProfileRoot -AllowedPolicyPath $PolicyPath -DoApply:$applyChanges
@@ -197,6 +213,9 @@ else {
     Write-Step "Preset: $Preset"
 }
 Write-Step "Platform: $platformName"
+if ($Channel -ne 'Stable') {
+    Write-Step "Channel: $Channel"
+}
 Write-Step "Scope: $Scope ($($policyTarget.Path))"
 if ($LockShields) {
     Write-Step 'Shield baseline: enabled. Brave will keep ad blocking, standard fingerprinting protection, HTTPS upgrades, and referrer capping on by policy.'
